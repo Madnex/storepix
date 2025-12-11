@@ -1,0 +1,129 @@
+/* storepix - Minimal Template */
+/* Clean, simple design with solid background */
+
+:root {
+  --primary: #007AFF;
+  --background: #FFFFFF;
+  --foreground: #000000;
+  --foreground-secondary: #666666;
+  --device-frame: #1a1a1a;
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --edge-padding: 180px;
+  --viewport-width: 1284px;
+  --viewport-height: 2778px;
+  --scale: 1;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-family);
+  background: var(--background);
+  overflow: hidden;
+}
+
+.screenshot-frame {
+  width: var(--viewport-width);
+  height: var(--viewport-height);
+  position: relative;
+  background: var(--background);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: calc(var(--edge-padding) * var(--scale)) calc(60px * var(--scale));
+  overflow: hidden;
+}
+
+/* Dark Theme */
+.dark-theme {
+  --background: #000000;
+  --foreground: #FFFFFF;
+  --foreground-secondary: #AAAAAA;
+}
+
+.dark-theme .screenshot-frame {
+  background: var(--background);
+}
+
+/* Headlines */
+.headline-container {
+  text-align: center;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding-bottom: calc(80px * var(--scale));
+}
+
+.headline {
+  font-size: calc(80px * var(--scale));
+  font-weight: 700;
+  color: var(--foreground);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.subheadline {
+  font-size: calc(80px * var(--scale));
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+/* Device */
+.device-container {
+  flex: 0 0 auto;
+  z-index: 10;
+}
+
+.device-frame {
+  position: relative;
+  background: var(--device-frame);
+  border-radius: calc(144px * var(--scale));
+  padding: calc(26px * var(--scale));
+  box-shadow: 0 calc(40px * var(--scale)) calc(80px * var(--scale)) rgba(0, 0, 0, 0.15);
+}
+
+.device-notch {
+  position: absolute;
+  top: calc(54px * var(--scale));
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(210px * var(--scale));
+  height: calc(62px * var(--scale));
+  background: #000;
+  border-radius: calc(31px * var(--scale));
+  z-index: 20;
+}
+
+.device-screen {
+  width: calc(920px * var(--scale));
+  height: calc(1993px * var(--scale));
+  border-radius: calc(118px * var(--scale));
+  overflow: hidden;
+  background: #FFFFFF;
+}
+
+.device-screen img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Headline Below */
+.screenshot-frame.headline-below .headline-container {
+  order: 2;
+  padding-bottom: 0;
+  padding-top: calc(80px * var(--scale));
+}
+
+.screenshot-frame.headline-below .device-container {
+  order: 1;
+}

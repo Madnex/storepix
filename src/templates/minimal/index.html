@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>App Store Screenshot</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="screenshot-frame" id="screenshot-frame">
+    <!-- Marketing headline -->
+    <div class="headline-container">
+      <h1 class="headline" id="headline">Your headline</h1>
+      <p class="subheadline" id="subheadline">here</p>
+    </div>
+
+    <!-- Device mockup -->
+    <div class="device-container">
+      <div class="device-frame">
+        <div class="device-notch" id="device-notch"></div>
+        <div class="device-screen">
+          <img src="" alt="App Screenshot" id="screenshot-img">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+
+    const config = {
+      screenshot: urlParams.get('screenshot') || '',
+      headline: urlParams.get('headline') || 'Your headline',
+      subheadline: urlParams.get('subheadline') || 'here',
+      theme: urlParams.get('theme') || 'light',
+      layout: urlParams.get('layout') || 'top',
+      deviceWidth: parseInt(urlParams.get('deviceWidth')) || 1284,
+      deviceHeight: parseInt(urlParams.get('deviceHeight')) || 2778,
+    };
+
+    // Parse theme JSON
+    try {
+      const themeJson = urlParams.get('themeJson');
+      if (themeJson) {
+        const theme = JSON.parse(themeJson);
+        const root = document.documentElement;
+        if (theme.primary) root.style.setProperty('--primary', theme.primary);
+        if (theme.background) root.style.setProperty('--background', theme.background);
+        if (theme.font) root.style.setProperty('--font-family', theme.font);
+      }
+    } catch (e) {}
+
+    document.getElementById('screenshot-img').src = config.screenshot;
+    document.getElementById('headline').textContent = config.headline;
+    document.getElementById('subheadline').textContent = config.subheadline;
+
+    if (config.theme === 'dark') {
+      document.body.classList.add('dark-theme');
+    }
+
+    if (config.layout === 'bottom') {
+      document.getElementById('screenshot-frame').classList.add('headline-below');
+    }
+
+    document.documentElement.style.setProperty('--viewport-width', config.deviceWidth + 'px');
+    document.documentElement.style.setProperty('--viewport-height', config.deviceHeight + 'px');
+    const scale = config.deviceWidth / 1284;
+    document.documentElement.style.setProperty('--scale', scale);
+  </script>
+</body>
+</html>

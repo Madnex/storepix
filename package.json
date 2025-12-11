@@ -1,0 +1,42 @@
+{
+  "name": "storepix",
+  "version": "0.1.0",
+  "description": "Generate beautiful App Store screenshots with HTML/CSS templates",
+  "type": "module",
+  "bin": {
+    "storepix": "./src/cli.js"
+  },
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "app-store",
+    "screenshots",
+    "marketing",
+    "ios",
+    "mockup",
+    "playwright"
+  ],
+  "author": "Jan Schroeder",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Madnex/storepix.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Madnex/storepix/issues"
+  },
+  "homepage": "https://github.com/Madnex/storepix#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "playwright": "^1.49.0",
+    "serve-handler": "^6.1.6"
+  }
+}
