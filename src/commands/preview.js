@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'fs';
 import { resolve, dirname, join } from 'path';
 import { pathToFileURL } from 'url';
 import handler from 'serve-handler';
+import { devices, getDevice, defaultDevice } from '../devices/index.js';
 
 // SSE clients for watch mode
 let sseClients = [];
@@ -48,10 +49,63 @@ const RELOAD_SCRIPT = `
 </script>
 `;
 
+/**
+ * Open browser window at device size using Playwright
+ * @param {string} url - URL to open
+ * @param {Object} device - Device definition with width/height
+ * @param {boolean} watchMode - Whether watch mode is enabled
+ */
+async function openBrowserWindow(url, device, watchMode) {
+  try {
+    const { chromium } = await import('playwright');
+
+    // Calculate a reasonable scale factor to fit on screen
+    // Most screens are 1440-2560 wide, so we scale down large devices
+    const maxWidth = 1400;
+    const maxHeight = 900;
+    const scale = Math.min(
+      maxWidth / device.width,
+      maxHeight / device.height,
+      0.5 // Max 50% scale for readability
+    );
+
+    const viewportWidth = Math.round(device.width * scale);
+    const viewportHeight = Math.round(device.height * scale);
+
+    console.log(`  Opening browser at ${viewportWidth}x${viewportHeight} (${Math.round(scale * 100)}% of ${device.width}x${device.height})`);
+
+    const browser = await chromium.launch({
+      headless: false,
+      args: [
+        `--window-size=${viewportWidth + 16},${viewportHeight + 100}`, // Add chrome UI space
+      ]
+    });
+
+    const context = await browser.newContext({
+      viewport: { width: viewportWidth, height: viewportHeight },
+      deviceScaleFactor: 1 / scale, // High DPI for crisp rendering
+    });
+
+    const page = await context.newPage();
+    await page.goto(url);
+
+    // Keep browser open - return cleanup function
+    return async () => {
+      await browser.close();
+    };
+  } catch (err) {
+    console.log(`\n  Warning: Could not open browser window.`);
+    console.log(`  Make sure Playwright is installed: npx playwright install chromium\n`);
+    return null;
+  }
+}
+
 export async function preview(options) {
   const configPath = resolve(options.config);
   const port = parseInt(options.port, 10);
   const watchMode = options.watch || false;
+  const shouldOpen = options.open || false;
+  const deviceKey = options.device;
 
   // Load config
   if (!existsSync(configPath)) {
@@ -192,7 +246,25 @@ export async function preview(options) {
     }
   }
 
-  server.listen(port, () => {
+  // Determine which device to use for browser window
+  let selectedDevice = null;
+  if (shouldOpen) {
+    if (deviceKey) {
+      selectedDevice = getDevice(deviceKey);
+      if (!devices[deviceKey]) {
+        console.log(`\n  Warning: Unknown device "${deviceKey}", using ${defaultDevice}`);
+      }
+    } else if (config.devices && config.devices.length > 0) {
+      // Use first device from config
+      selectedDevice = getDevice(config.devices[0]);
+    } else {
+      selectedDevice = getDevice(defaultDevice);
+    }
+  }
+
+  let closeBrowser = null;
+
+  server.listen(port, async () => {
     console.log(`\n  storepix preview server running\n`);
     console.log(`  Template: ${config.template}`);
     console.log(`  URL: http://localhost:${port}`);
@@ -201,32 +273,67 @@ export async function preview(options) {
     }
     console.log();
 
-    // Build example URL with first screenshot
+    // Build URL with first screenshot and device params
+    let previewUrl = `http://localhost:${port}`;
     if (config.screenshots && config.screenshots.length > 0) {
       const s = config.screenshots[0];
       const params = new URLSearchParams({
         screenshot: s.source,
-        headline: s.headline,
-        subheadline: s.subheadline,
+        headline: s.headline || '',
+        subheadline: s.subheadline || '',
         theme: s.theme || 'light',
         layout: s.layout || 'top'
       });
+
+      // Add device parameters if opening browser
+      if (shouldOpen && selectedDevice) {
+        const deviceInfo = deviceKey || (config.devices && config.devices[0]) || defaultDevice;
+        const device = selectedDevice;
+        params.set('deviceWidth', device.width.toString());
+        params.set('deviceHeight', device.height.toString());
+        params.set('platform', device.platform);
+        params.set('notchType', device.frame?.notch?.type || 'none');
+        params.set('hasHomeButton', (device.frame?.homeButton || false).toString());
+
+        // Add status bar params if enabled
+        if (config.statusBar?.enabled) {
+          params.set('statusBar', 'true');
+          params.set('statusBarTime', config.statusBar?.time || '9:41');
+          params.set('statusBarBattery', (config.statusBar?.battery ?? 100).toString());
+          params.set('statusBarShowPercent', (config.statusBar?.showBatteryPercent ?? true).toString());
+          params.set('statusBarStyle', config.statusBar?.style || 'auto');
+        }
+
+        // Add theme params
+        if (config.theme) {
+          params.set('themeJson', JSON.stringify(config.theme));
+        }
+      }
+
+      previewUrl = `http://localhost:${port}?${params.toString()}`;
       console.log(`  Preview first screenshot:`);
-      console.log(`  http://localhost:${port}?${params.toString()}\n`);
+      console.log(`  ${previewUrl}\n`);
+    }
+
+    // Open browser window if requested
+    if (shouldOpen && selectedDevice) {
+      closeBrowser = await openBrowserWindow(previewUrl, selectedDevice, watchMode);
     }
 
     console.log('  Press Ctrl+C to stop\n');
   });
 
   // Cleanup on exit
-  process.on('SIGINT', () => {
+  process.on('SIGINT', async () => {
     console.log('\n  Shutting down...');
+    if (closeBrowser) await closeBrowser();
     if (watcher) watcher.stop();
     server.close();
     process.exit(0);
   });
 
-  process.on('SIGTERM', () => {
+  process.on('SIGTERM', async () => {
+    if (closeBrowser) await closeBrowser();
     if (watcher) watcher.stop();
     server.close();
     process.exit(0);

@@ -43,6 +43,8 @@ program
   .option('-c, --config <path>', 'Path to config file', './storepix/storepix.config.js')
   .option('-p, --port <port>', 'Port to run server on', '3000')
   .option('-w, --watch', 'Enable watch mode with hot reload')
+  .option('-o, --open', 'Open browser window at device size')
+  .option('-d, --device <device>', 'Device size for browser window (default: first in config)')
   .action(preview);
 
 program
