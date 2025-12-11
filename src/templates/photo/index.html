@@ -11,6 +11,10 @@
 </head>
 <body>
   <div class="screenshot-frame" id="screenshot-frame">
+    <!-- Background image (optional) -->
+    <div class="background-image" id="background-image"></div>
+    <div class="background-overlay"></div>
+
     <!-- Marketing headline -->
     <div class="headline-container">
       <h1 class="headline" id="headline">Your headline</h1>
@@ -34,6 +38,7 @@
 
     const config = {
       screenshot: urlParams.get('screenshot') || '',
+      background: urlParams.get('background') || '',
       headline: urlParams.get('headline') || 'Your headline',
       subheadline: urlParams.get('subheadline') || 'here',
       theme: urlParams.get('theme') || 'light',
@@ -58,14 +63,22 @@
       }
     } catch (e) {}
 
+    // Set screenshot
     document.getElementById('screenshot-img').src = config.screenshot;
     document.getElementById('headline').textContent = config.headline;
     document.getElementById('subheadline').textContent = config.subheadline;
 
+    // Set background image if provided
+    if (config.background) {
+      document.getElementById('background-image').style.backgroundImage = `url(${config.background})`;
+    }
+
+    // Theme
     if (config.theme === 'dark') {
       document.body.classList.add('dark-theme');
     }
 
+    // Layout
     if (config.layout === 'bottom') {
       document.getElementById('screenshot-frame').classList.add('headline-below');
     }
@@ -85,6 +98,7 @@
       homeButtonEl.style.display = 'block';
     }
 
+    // Viewport sizing
     document.documentElement.style.setProperty('--viewport-width', config.deviceWidth + 'px');
     document.documentElement.style.setProperty('--viewport-height', config.deviceHeight + 'px');
     const scale = config.deviceWidth / 1284;

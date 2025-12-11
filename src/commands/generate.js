@@ -9,15 +9,55 @@ export async function generate(options) {
 
   // Load config
   if (!existsSync(configPath)) {
-    console.log(`\n  Config file not found: ${configPath}`);
-    console.log('  Run "npx storepix init" first to create a project.\n');
+    console.log(`\n  Error: Config file not found`);
+    console.log(`    Path: ${configPath}`);
+    console.log(`\n  Tip: Run "npx storepix init" to create a new project.\n`);
     process.exit(1);
   }
 
   const configDir = dirname(configPath);
-  const config = (await import(pathToFileURL(configPath).href)).default;
+
+  let config;
+  try {
+    config = (await import(pathToFileURL(configPath).href)).default;
+  } catch (err) {
+    console.log(`\n  Error: Failed to load config file`);
+    console.log(`    Path: ${configPath}`);
+    console.log(`    ${err.message}\n`);
+    process.exit(1);
+  }
 
   console.log('\n  storepix - Generating App Store Screenshots\n');
+
+  // Validate screenshots array exists
+  if (!config.screenshots || !Array.isArray(config.screenshots) || config.screenshots.length === 0) {
+    console.log(`  Error: No screenshots defined in config`);
+    console.log(`    Add a "screenshots" array to your storepix.config.js\n`);
+    process.exit(1);
+  }
+
+  // Validate screenshot source files exist
+  const missingScreenshots = [];
+  for (const screenshot of config.screenshots) {
+    if (!screenshot.source) {
+      console.log(`  Error: Screenshot "${screenshot.id}" is missing a "source" path\n`);
+      process.exit(1);
+    }
+    const sourcePath = join(configDir, screenshot.source);
+    if (!existsSync(sourcePath)) {
+      missingScreenshots.push({ id: screenshot.id, path: sourcePath, source: screenshot.source });
+    }
+  }
+
+  if (missingScreenshots.length > 0) {
+    console.log(`  Error: Screenshot source files not found\n`);
+    for (const missing of missingScreenshots) {
+      console.log(`    - ${missing.id}: ${missing.source}`);
+      console.log(`      Expected at: ${missing.path}`);
+    }
+    console.log(`\n  Tip: Add your app screenshots to the "screenshots" folder.\n`);
+    process.exit(1);
+  }
 
   // Determine devices to generate
   const deviceKeys = options.device
@@ -27,8 +67,12 @@ export async function generate(options) {
   // Validate devices
   for (const key of deviceKeys) {
     if (!devices[key]) {
-      console.log(`  Unknown device: ${key}`);
-      console.log(`  Available: ${Object.keys(devices).join(', ')}\n`);
+      console.log(`  Error: Unknown device "${key}"`);
+      console.log(`\n  Available devices:`);
+      const iosDevices = Object.entries(devices).filter(([_, d]) => d.platform === 'ios');
+      const androidDevices = Object.entries(devices).filter(([_, d]) => d.platform === 'android');
+      console.log(`    iOS: ${iosDevices.map(([k]) => k).join(', ')}`);
+      console.log(`    Android: ${androidDevices.map(([k]) => k).join(', ')}\n`);
       process.exit(1);
     }
   }
@@ -38,13 +82,22 @@ export async function generate(options) {
     ? [options.locale]
     : (config.locales ? Object.keys(config.locales) : [null]);
 
+  // Validate specified locale exists
+  if (options.locale && config.locales && !config.locales[options.locale]) {
+    console.log(`  Error: Unknown locale "${options.locale}"`);
+    console.log(`    Available: ${Object.keys(config.locales).join(', ')}\n`);
+    process.exit(1);
+  }
+
   // Template path
   const templateDir = join(configDir, 'templates', config.template || 'default');
   const htmlPath = join(templateDir, 'index.html');
 
   if (!existsSync(htmlPath)) {
-    console.log(`  Template not found: ${templateDir}`);
-    console.log('  Make sure your template has an index.html file.\n');
+    console.log(`  Error: Template not found`);
+    console.log(`    Path: ${templateDir}`);
+    console.log(`\n  Tip: Make sure your template folder contains an index.html file.`);
+    console.log(`  Available templates: default, minimal, plain\n`);
     process.exit(1);
   }
 
@@ -101,6 +154,12 @@ export async function generate(options) {
             // Pass device info for CSS scaling
             deviceWidth: device.width.toString(),
             deviceHeight: device.height.toString(),
+            // Pass device frame info for template customization
+            platform: device.platform || 'ios',
+            notchType: device.frame?.notch?.type || 'none',
+            notchWidth: (device.frame?.notch?.width || 0).toString(),
+            notchHeight: (device.frame?.notch?.height || 0).toString(),
+            hasHomeButton: (device.frame?.homeButton || false).toString(),
             // Pass theme variables
             ...(config.theme && { themeJson: JSON.stringify(config.theme) })
           });
@@ -109,21 +168,36 @@ export async function generate(options) {
 
           await page.goto(url, { waitUntil: 'networkidle' });
 
-          // Wait for screenshot image to load
-          await page.waitForSelector('#screenshot-img', { state: 'visible' });
-          await page.evaluate(() => {
+          // Wait for screenshot image to load with better error handling
+          const imgSelector = '#screenshot-img';
+          try {
+            await page.waitForSelector(imgSelector, { state: 'visible', timeout: 5000 });
+          } catch {
+            console.log(`      Warning: Screenshot image element not found in template`);
+          }
+
+          const imageLoadResult = await page.evaluate(() => {
             return new Promise((resolve) => {
               const img = document.getElementById('screenshot-img');
-              if (img && img.complete) {
-                resolve();
-              } else if (img) {
-                img.onload = resolve;
-                img.onerror = resolve;
+              if (!img) {
+                resolve({ success: true, reason: 'no-img-element' });
+                return;
+              }
+              if (img.complete && img.naturalWidth > 0) {
+                resolve({ success: true, width: img.naturalWidth, height: img.naturalHeight });
+              } else if (img.complete && img.naturalWidth === 0) {
+                resolve({ success: false, reason: 'image-load-failed' });
               } else {
-                resolve();
+                img.onload = () => resolve({ success: true, width: img.naturalWidth, height: img.naturalHeight });
+                img.onerror = () => resolve({ success: false, reason: 'image-load-error' });
               }
             });
           });
+
+          if (!imageLoadResult.success) {
+            console.log(`      Warning: Failed to load image for ${screenshot.id}`);
+            console.log(`        Source: ${screenshot.source}`);
+          }
 
           // Small delay for any animations/rendering
           await page.waitForTimeout(300);

@@ -191,6 +191,21 @@ body {
   z-index: 20;
 }
 
+/* Home Button (for iPhone 8 Plus and older) */
+.device-home-button {
+  display: none;
+  position: absolute;
+  bottom: calc(40px * var(--scale));
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(160px * var(--scale));
+  height: calc(160px * var(--scale));
+  border-radius: 50%;
+  border: calc(6px * var(--scale)) solid #333;
+  background: transparent;
+  z-index: 20;
+}
+
 .device-screen {
   width: calc(920px * var(--scale));
   height: calc(1993px * var(--scale));

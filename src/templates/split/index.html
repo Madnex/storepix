@@ -11,14 +11,16 @@
 </head>
 <body>
   <div class="screenshot-frame" id="screenshot-frame">
-    <!-- Marketing headline -->
-    <div class="headline-container">
-      <h1 class="headline" id="headline">Your headline</h1>
-      <p class="subheadline" id="subheadline">here</p>
+    <!-- Text side -->
+    <div class="text-side">
+      <div class="headline-container">
+        <h1 class="headline" id="headline">Your headline</h1>
+        <p class="subheadline" id="subheadline">here</p>
+      </div>
     </div>
 
-    <!-- Device mockup -->
-    <div class="device-container">
+    <!-- Device side -->
+    <div class="device-side">
       <div class="device-frame">
         <div class="device-notch" id="device-notch"></div>
         <div class="device-home-button" id="device-home-button"></div>
@@ -37,7 +39,7 @@
       headline: urlParams.get('headline') || 'Your headline',
       subheadline: urlParams.get('subheadline') || 'here',
       theme: urlParams.get('theme') || 'light',
-      layout: urlParams.get('layout') || 'top',
+      layout: urlParams.get('layout') || 'left', // left = text on left, right = text on right
       deviceWidth: parseInt(urlParams.get('deviceWidth')) || 1284,
       deviceHeight: parseInt(urlParams.get('deviceHeight')) || 2778,
       notchType: urlParams.get('notchType') || 'dynamic-island',
@@ -58,16 +60,19 @@
       }
     } catch (e) {}
 
+    // Set content
     document.getElementById('screenshot-img').src = config.screenshot;
     document.getElementById('headline').textContent = config.headline;
     document.getElementById('subheadline').textContent = config.subheadline;
 
+    // Theme
     if (config.theme === 'dark') {
       document.body.classList.add('dark-theme');
     }
 
-    if (config.layout === 'bottom') {
-      document.getElementById('screenshot-frame').classList.add('headline-below');
+    // Layout - text position
+    if (config.layout === 'right' || config.layout === 'bottom') {
+      document.getElementById('screenshot-frame').classList.add('text-right');
     }
 
     // Device notch/home button handling
@@ -85,6 +90,7 @@
       homeButtonEl.style.display = 'block';
     }
 
+    // Viewport sizing
     document.documentElement.style.setProperty('--viewport-width', config.deviceWidth + 'px');
     document.documentElement.style.setProperty('--viewport-height', config.deviceHeight + 'px');
     const scale = config.deviceWidth / 1284;

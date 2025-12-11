@@ -1,5 +1,5 @@
-/* storepix - Minimal Template */
-/* Clean, simple design with solid background */
+/* storepix - Split Template */
+/* Side-by-side layout with text and device - good for iPad and landscape */
 
 :root {
   --primary: #007AFF;
@@ -8,7 +8,6 @@
   --foreground-secondary: #666666;
   --device-frame: #1a1a1a;
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --edge-padding: 180px;
   --viewport-width: 1284px;
   --viewport-height: 2778px;
   --scale: 1;
@@ -32,9 +31,7 @@ body {
   position: relative;
   background: var(--background);
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: calc(var(--edge-padding) * var(--scale)) calc(60px * var(--scale));
+  flex-direction: row;
   overflow: hidden;
 }
 
@@ -49,20 +46,25 @@ body {
   background: var(--background);
 }
 
-/* Headlines */
-.headline-container {
-  text-align: center;
-  z-index: 10;
+/* Text side */
+.text-side {
+  flex: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex: 1;
-  padding-bottom: calc(80px * var(--scale));
+  padding: calc(80px * var(--scale));
+  z-index: 10;
+}
+
+.headline-container {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: calc(16px * var(--scale));
 }
 
 .headline {
-  font-size: calc(80px * var(--scale));
+  font-size: calc(72px * var(--scale));
   font-weight: 700;
   color: var(--foreground);
   line-height: 1.1;
@@ -70,30 +72,37 @@ body {
 }
 
 .subheadline {
-  font-size: calc(80px * var(--scale));
+  font-size: calc(72px * var(--scale));
   font-weight: 700;
   color: var(--primary);
   line-height: 1.1;
   letter-spacing: -0.02em;
 }
 
-/* Device */
-.device-container {
-  flex: 0 0 auto;
+/* Device side */
+.device-side {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(60px * var(--scale));
   z-index: 10;
 }
 
 .device-frame {
   position: relative;
   background: var(--device-frame);
-  border-radius: calc(144px * var(--scale));
-  padding: calc(26px * var(--scale));
-  box-shadow: 0 calc(40px * var(--scale)) calc(80px * var(--scale)) rgba(0, 0, 0, 0.15);
+  border-radius: calc(100px * var(--scale));
+  padding: calc(18px * var(--scale));
+  box-shadow: 0 calc(30px * var(--scale)) calc(60px * var(--scale)) rgba(0, 0, 0, 0.15);
+  /* Scale device to fit in available space */
+  transform: scale(0.65);
+  transform-origin: center center;
 }
 
 .device-notch {
   position: absolute;
-  top: calc(54px * var(--scale));
+  top: calc(40px * var(--scale));
   left: 50%;
   transform: translateX(-50%);
   width: calc(210px * var(--scale));
@@ -106,13 +115,13 @@ body {
 .device-home-button {
   display: none;
   position: absolute;
-  bottom: calc(40px * var(--scale));
+  bottom: calc(30px * var(--scale));
   left: 50%;
   transform: translateX(-50%);
-  width: calc(160px * var(--scale));
-  height: calc(160px * var(--scale));
+  width: calc(120px * var(--scale));
+  height: calc(120px * var(--scale));
   border-radius: 50%;
-  border: calc(6px * var(--scale)) solid #333;
+  border: calc(4px * var(--scale)) solid #333;
   background: transparent;
   z-index: 20;
 }
@@ -120,7 +129,7 @@ body {
 .device-screen {
   width: calc(920px * var(--scale));
   height: calc(1993px * var(--scale));
-  border-radius: calc(118px * var(--scale));
+  border-radius: calc(82px * var(--scale));
   overflow: hidden;
   background: #FFFFFF;
 }
@@ -131,13 +140,15 @@ body {
   object-fit: cover;
 }
 
-/* Headline Below */
-.screenshot-frame.headline-below .headline-container {
+/* Text on right variant */
+.screenshot-frame.text-right .text-side {
   order: 2;
-  padding-bottom: 0;
-  padding-top: calc(80px * var(--scale));
 }
 
-.screenshot-frame.headline-below .device-container {
+.screenshot-frame.text-right .device-side {
   order: 1;
+}
+
+.screenshot-frame.text-right .headline-container {
+  text-align: right;
 }

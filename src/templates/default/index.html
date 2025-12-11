@@ -26,6 +26,7 @@
     <div class="device-container">
       <div class="device-frame">
         <div class="device-notch" id="device-notch"></div>
+        <div class="device-home-button" id="device-home-button"></div>
         <div class="device-screen">
           <img src="" alt="App Screenshot" id="screenshot-img">
         </div>
@@ -45,6 +46,10 @@
       layout: urlParams.get('layout') || 'top',
       deviceWidth: parseInt(urlParams.get('deviceWidth')) || 1284,
       deviceHeight: parseInt(urlParams.get('deviceHeight')) || 2778,
+      notchType: urlParams.get('notchType') || 'dynamic-island',
+      notchWidth: parseInt(urlParams.get('notchWidth')) || 210,
+      notchHeight: parseInt(urlParams.get('notchHeight')) || 62,
+      hasHomeButton: urlParams.get('hasHomeButton') === 'true',
     };
 
     // Parse theme JSON if provided
@@ -73,6 +78,21 @@
     // Apply layout
     if (config.layout === 'bottom') {
       document.getElementById('screenshot-frame').classList.add('headline-below');
+    }
+
+    // Device notch/home button handling
+    const notchEl = document.getElementById('device-notch');
+    const homeButtonEl = document.getElementById('device-home-button');
+
+    if (config.notchType === 'none' || config.hasHomeButton) {
+      notchEl.style.display = 'none';
+    } else {
+      notchEl.style.width = `calc(${config.notchWidth}px * var(--scale))`;
+      notchEl.style.height = `calc(${config.notchHeight}px * var(--scale))`;
+    }
+
+    if (config.hasHomeButton) {
+      homeButtonEl.style.display = 'block';
     }
 
     // Set viewport size via CSS variables for dynamic scaling

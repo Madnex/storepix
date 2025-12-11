@@ -13,28 +13,46 @@
 
 ---
 
-## v1.x - Near Term
+## v1.1 - Completed
 
 ### More Templates
-- [ ] `plain` - Screenshot only, no phone frame
-- [ ] `photo` - Photo/image background support
-- [ ] `split` - Side-by-side device + text (landscape-friendly)
+- [x] `plain` - Screenshot only, no phone frame
+- [x] `photo` - Photo/image background support
+- [x] `split` - Side-by-side device + text (landscape-friendly)
 
 ### Additional Device Support
-- [ ] iPad Pro 12.9" (2048x2732)
-- [ ] iPad Pro 11" (1668x2388)
-- [ ] Android phone (1080x1920)
-- [ ] Android tablet 7" (1200x1920)
-- [ ] Android tablet 10" (1600x2560)
+- [x] iPhone 6.3" (1206x2622) - iPhone 16 Pro, 15 Pro, etc.
+- [x] iPhone 6.1" (1179x2556) - iPhone 14, 13, 12, etc.
+- [x] iPhone 4.7" (750x1334) - iPhone SE, 8, 7, etc.
+- [x] iPad Pro 13" (2064x2752)
+- [x] iPad Pro 12.9" (2048x2732)
+- [x] iPad Pro 11" (1668x2388)
+- [x] Android phone (1080x1920)
+- [x] Android tablet 7" (1080x1920)
+- [x] Android tablet 10" (1200x1920)
+- [x] Android Wear OS (384x384)
 
 ### Template Improvements
-- [ ] iPhone 8 Plus template variant (no Dynamic Island, home button style)
+- [x] iPhone 8 Plus template variant (no Dynamic Island, home button style)
+- [x] Device-specific notch/Dynamic Island rendering
+- [x] Home button support for older iPhone models
+
+### Developer Experience
+- [x] Better error messages for missing screenshots
+- [x] Validates screenshot files exist before processing
+- [x] Validates device and locale configuration
+- [x] Clear error paths and suggestions
+
+---
+
+## v1.x - Near Term
+
+### Template Improvements
 - [ ] Status bar injection (realistic time, battery, signal)
 - [ ] Home indicator styling options
 
 ### Developer Experience
 - [ ] Watch mode with hot reload (`storepix preview --watch`)
-- [ ] Better error messages for missing screenshots
 - [ ] Screenshot validation (correct dimensions, no transparency issues)
 - [ ] `storepix upgrade` command to update templates without losing customizations
 

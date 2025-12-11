@@ -85,7 +85,9 @@ export default {
   },
 
   // Device sizes to generate
-  // Available: 'iphone-6.9', 'iphone-6.7', 'iphone-6.5', 'iphone-5.5'
+  // iPhone: 'iphone-6.9', 'iphone-6.7', 'iphone-6.5', 'iphone-6.3', 'iphone-6.1', 'iphone-5.5', 'iphone-4.7'
+  // iPad: 'ipad-13', 'ipad-12.9', 'ipad-11'
+  // Android: 'android-phone', 'android-tablet-7', 'android-tablet-10', 'android-wear'
   devices: ['iphone-6.5'],
 
   // Theme customization (injected as CSS variables)
