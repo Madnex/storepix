@@ -11,6 +11,11 @@
   --viewport-width: 1284px;
   --viewport-height: 2778px;
   --scale: 1;
+
+  /* Home indicator (for older iPhones with home button) */
+  --home-indicator-light: #333333;
+  --home-indicator-dark: #CCCCCC;
+  --home-indicator: var(--home-indicator-light);
 }
 
 * {
@@ -40,6 +45,7 @@ body {
   --background: #000000;
   --foreground: #FFFFFF;
   --foreground-secondary: #AAAAAA;
+  --home-indicator: var(--home-indicator-dark);
 }
 
 .dark-theme .screenshot-frame {
@@ -121,7 +127,7 @@ body {
   width: calc(120px * var(--scale));
   height: calc(120px * var(--scale));
   border-radius: 50%;
-  border: calc(4px * var(--scale)) solid #333;
+  border: calc(4px * var(--scale)) solid var(--home-indicator);
   background: transparent;
   z-index: 20;
 }

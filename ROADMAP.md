@@ -45,16 +45,16 @@
 
 ---
 
-## v1.x - Near Term
+## v1.x - Near Term (Completed)
 
 ### Template Improvements
-- [ ] Status bar injection (realistic time, battery, signal)
-- [ ] Home indicator styling options
+- [x] Status bar injection (realistic time, battery, signal)
+- [x] Home indicator styling options
 
 ### Developer Experience
-- [ ] Watch mode with hot reload (`storepix preview --watch`)
-- [ ] Screenshot validation (correct dimensions, no transparency issues)
-- [ ] `storepix upgrade` command to update templates without losing customizations
+- [x] Watch mode with hot reload (`storepix preview --watch`)
+- [x] Screenshot validation (correct dimensions, no transparency issues)
+- [x] `storepix upgrade` command to update templates without losing customizations
 
 ---
 

@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, statSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { pathToFileURL } from 'url';
 import { devices, getDevice } from '../devices/index.js';
+import { validateAllScreenshots, printValidationResults } from '../utils/validation.js';
 
 export async function generate(options) {
   const configPath = resolve(options.config);
@@ -101,6 +102,22 @@ export async function generate(options) {
     process.exit(1);
   }
 
+  // Validate screenshot dimensions (unless skipped)
+  if (!options.skipValidation) {
+    console.log('  Validating screenshots...');
+    const validation = validateAllScreenshots(config.screenshots, configDir, deviceKeys, devices);
+    const { valid, hasWarnings } = printValidationResults(validation);
+
+    if (!valid) {
+      console.log('  Validation failed. Fix the errors above or use --skip-validation to proceed anyway.\n');
+      process.exit(1);
+    }
+
+    if (!hasWarnings) {
+      console.log('  All screenshots validated.\n');
+    }
+  }
+
   // Launch browser
   const browser = await chromium.launch();
 
@@ -160,6 +177,12 @@ export async function generate(options) {
             notchWidth: (device.frame?.notch?.width || 0).toString(),
             notchHeight: (device.frame?.notch?.height || 0).toString(),
             hasHomeButton: (device.frame?.homeButton || false).toString(),
+            // Status bar configuration
+            statusBar: (config.statusBar?.enabled ?? false).toString(),
+            statusBarTime: config.statusBar?.time || '9:41',
+            statusBarBattery: (config.statusBar?.battery ?? 100).toString(),
+            statusBarShowPercent: (config.statusBar?.showBatteryPercent ?? true).toString(),
+            statusBarStyle: config.statusBar?.style || 'auto',
             // Pass theme variables
             ...(config.theme && { themeJson: JSON.stringify(config.theme) })
           });

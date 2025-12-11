@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, cpSync, writeFileSync, readdirSync } from 'fs';
+import { existsSync, mkdirSync, cpSync, writeFileSync, readdirSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { createHash } from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -40,6 +41,13 @@ export async function init(options) {
   const targetTemplatePath = join(targetDir, 'templates', templateName);
   cpSync(templatePath, targetTemplatePath, { recursive: true });
 
+  // Copy status-bar component (shared across templates)
+  const statusBarSource = join(templatesDir, 'status-bar');
+  const statusBarTarget = join(targetDir, 'templates', 'status-bar');
+  if (existsSync(statusBarSource)) {
+    cpSync(statusBarSource, statusBarTarget, { recursive: true });
+  }
+
   // Create config file
   const configContent = generateConfig(templateName);
   writeFileSync(join(targetDir, 'storepix.config.js'), configContent);
@@ -50,8 +58,22 @@ output/
 
 # Node modules (if using local dependencies)
 node_modules/
+
+# Upgrade backups
+.storepix-backup-*
 `;
   writeFileSync(join(targetDir, '.gitignore'), gitignoreContent);
+
+  // Create version tracking file for upgrades
+  const pkg = JSON.parse(readFileSync(join(__dirname, '..', '..', 'package.json'), 'utf-8'));
+  const versionInfo = {
+    version: pkg.version,
+    template: templateName,
+    createdAt: new Date().toISOString(),
+    files: getFileHashes(targetTemplatePath),
+    statusBarFiles: existsSync(statusBarTarget) ? getFileHashes(statusBarTarget) : {}
+  };
+  writeFileSync(join(targetDir, '.storepix-version.json'), JSON.stringify(versionInfo, null, 2));
 
   console.log('  Created directory structure:');
   console.log(`    ${targetDir}/`);
@@ -94,7 +116,19 @@ export default {
   theme: {
     primary: '#007AFF',
     font: 'Inter',
+    // Home button styling (for iPhone 8 and earlier)
+    // homeIndicatorLight: '#333333',
+    // homeIndicatorDark: '#CCCCCC',
   },
+
+  // Status bar injection (adds realistic status bar to screenshots)
+  // statusBar: {
+  //   enabled: true,           // Set to true to show status bar
+  //   time: '9:41',            // Displayed time
+  //   battery: 100,            // Battery percentage (0-100)
+  //   showBatteryPercent: true, // Show percentage number
+  //   style: 'auto',           // 'light', 'dark', or 'auto' (matches theme)
+  // },
 
   // Your screenshots
   screenshots: [
@@ -121,4 +155,32 @@ export default {
   // },
 };
 `;
+}
+
+/**
+ * Get file hashes for version tracking
+ * @param {string} dir - Directory to hash
+ * @returns {Object} Map of relative paths to MD5 hashes
+ */
+function getFileHashes(dir) {
+  const files = {};
+
+  function walkDir(currentDir, baseDir) {
+    if (!existsSync(currentDir)) return;
+
+    const entries = readdirSync(currentDir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = join(currentDir, entry.name);
+      if (entry.isDirectory()) {
+        walkDir(fullPath, baseDir);
+      } else {
+        const relativePath = fullPath.replace(baseDir + '/', '').replace(baseDir + '\\', '');
+        const content = readFileSync(fullPath);
+        files[relativePath] = createHash('md5').update(content).digest('hex');
+      }
+    }
+  }
+
+  walkDir(dir, dir);
+  return files;
 }

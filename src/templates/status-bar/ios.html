@@ -1,0 +1,37 @@
+<!-- iOS Status Bar - Injected into templates when enabled -->
+<div class="status-bar status-bar-ios" id="status-bar">
+  <div class="status-bar-left">
+    <span class="status-time" id="status-time">9:41</span>
+  </div>
+  <div class="status-bar-center">
+    <!-- Space for Dynamic Island / Notch -->
+  </div>
+  <div class="status-bar-right">
+    <!-- Cellular signal bars -->
+    <svg class="status-signal" viewBox="0 0 17 10.7" fill="currentColor">
+      <path d="M14.5,0h.5A2,2,0,0,1,17,2V8.7a2,2,0,0,1-2,2h-.5a2,2,0,0,1-2-2V2A2,2,0,0,1,14.5,0Z"/>
+      <path d="M9.5,2h.5a2,2,0,0,1,2,2V8.7a2,2,0,0,1-2,2H9.5a2,2,0,0,1-2-2V4A2,2,0,0,1,9.5,2Z"/>
+      <path d="M4.5,4H5A2,2,0,0,1,7,6V8.7a2,2,0,0,1-2,2H4.5a2,2,0,0,1-2-2V6A2,2,0,0,1,4.5,4Z"/>
+      <path d="M.5,6H1A1,1,0,0,1,2,7V9.7a1,1,0,0,1-1,1H.5a1,1,0,0,1-1-1V7A1,1,0,0,1,.5,6Z" opacity="0.5"/>
+    </svg>
+    <!-- WiFi icon -->
+    <svg class="status-wifi" viewBox="0 0 15.5 11" fill="currentColor">
+      <path d="M7.75,2.25a9.55,9.55,0,0,1,6.6,2.65.75.75,0,0,0,1.05-1.07A11,11,0,0,0,7.75.75,11,11,0,0,0,.1,3.83.75.75,0,1,0,1.15,4.9,9.55,9.55,0,0,1,7.75,2.25Z"/>
+      <path d="M7.75,5.5a6.22,6.22,0,0,1,4.35,1.76.75.75,0,1,0,1.05-1.07,7.72,7.72,0,0,0-10.8,0,.75.75,0,0,0,1.05,1.07A6.22,6.22,0,0,1,7.75,5.5Z"/>
+      <path d="M7.75,8.75a2.89,2.89,0,0,1,2.1.88.75.75,0,1,0,1.05-1.07,4.4,4.4,0,0,0-6.3,0,.75.75,0,0,0,1.05,1.07A2.89,2.89,0,0,1,7.75,8.75Z"/>
+      <circle cx="7.75" cy="11" r="1.25"/>
+    </svg>
+    <!-- Battery -->
+    <div class="status-battery">
+      <svg class="status-battery-icon" viewBox="0 0 25 12" fill="currentColor">
+        <!-- Battery outline -->
+        <rect x="0" y="0" width="22" height="12" rx="3" ry="3" fill="none" stroke="currentColor" stroke-width="1" opacity="0.35"/>
+        <!-- Battery cap -->
+        <path d="M23,4v4a1,1,0,0,0,1-1V5A1,1,0,0,0,23,4Z" opacity="0.4"/>
+        <!-- Battery fill -->
+        <rect class="status-battery-fill" id="battery-fill" x="2" y="2" width="18" height="8" rx="1.5" ry="1.5"/>
+      </svg>
+      <span class="status-battery-percent" id="battery-percent">100%</span>
+    </div>
+  </div>
+</div>

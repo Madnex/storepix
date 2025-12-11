@@ -20,6 +20,11 @@
   /* Device frame */
   --device-frame: #1a1a1a;
 
+  /* Home indicator (for older iPhones with home button) */
+  --home-indicator-light: #333333;
+  --home-indicator-dark: #CCCCCC;
+  --home-indicator: var(--home-indicator-light);
+
   /* Spacing - adjust for different layouts */
   --edge-padding: 220px;
 
@@ -83,6 +88,7 @@ body {
 .dark-theme {
   --foreground: #E0E0E0;
   --foreground-secondary: #B0B0B0;
+  --home-indicator: var(--home-indicator-dark);
 }
 
 /* ============================================
@@ -201,7 +207,7 @@ body {
   width: calc(160px * var(--scale));
   height: calc(160px * var(--scale));
   border-radius: 50%;
-  border: calc(6px * var(--scale)) solid #333;
+  border: calc(6px * var(--scale)) solid var(--home-indicator);
   background: transparent;
   z-index: 20;
 }
