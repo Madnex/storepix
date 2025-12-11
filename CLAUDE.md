@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-storepix is an npm CLI tool that generates App Store screenshots using HTML/CSS templates. Users run `npx storepix init` to scaffold a project, customize templates, and run `npx storepix generate` to create screenshots.
+storepix is an npm CLI tool that generates App Store and Play Store screenshots using HTML/CSS templates. Users run `npx storepix init` to scaffold a project, customize templates, and run `npx storepix generate` to create screenshots.
 
 ## Build & Run Commands
 
@@ -29,14 +29,13 @@ src/
 │   ├── generate.js     # Runs Playwright to capture screenshots
 │   └── preview.js      # Starts local preview server
 ├── devices/
-│   └── index.js        # iOS device definitions (dimensions, frame specs)
+│   └── index.js        # Device definitions (iOS, iPad, Android)
 └── templates/
-    ├── default/        # Gradient background template
-    │   ├── index.html
-    │   └── styles.css
-    └── minimal/        # Solid background template
-        ├── index.html
-        └── styles.css
+    ├── default/        # Gradient background with device frame
+    ├── minimal/        # Solid background with device frame
+    ├── plain/          # Screenshot only, no device frame
+    ├── photo/          # Photo/image background with device frame
+    └── split/          # Side-by-side text and device layout
 ```
 
 ### Key Patterns
@@ -47,14 +46,39 @@ src/
 
 **CSS scaling**: Templates use a `--scale` CSS variable to adapt layouts to different device dimensions. Base design is 1284x2778 (iPhone 6.5").
 
-**URL parameters**: The generate command passes config to templates via URL query parameters. Templates read these with JavaScript and apply them.
+**URL parameters**: The generate command passes config to templates via URL query parameters including device info (platform, notchType, hasHomeButton) for adaptive rendering.
 
-### Device Support (iOS only for v1)
+### Device Support
 
-- `iphone-6.9`: 1320x2868 (iPhone 16 Pro Max)
+**iPhone:**
+- `iphone-6.9`: 1320x2868 (iPhone 16 Pro Max) - Required for App Store
 - `iphone-6.7`: 1290x2796 (iPhone 15 Pro Max)
-- `iphone-6.5`: 1284x2778 (iPhone 14 Pro Max)
-- `iphone-5.5`: 1242x2208 (iPhone 8 Plus)
+- `iphone-6.5`: 1284x2778 (iPhone 14 Plus) - Required fallback
+- `iphone-6.3`: 1206x2622 (iPhone 16 Pro)
+- `iphone-6.1`: 1179x2556 (iPhone 14)
+- `iphone-5.5`: 1242x2208 (iPhone 8 Plus) - Has home button, no notch
+- `iphone-4.7`: 750x1334 (iPhone SE)
+
+**iPad:**
+- `ipad-13`: 2064x2752 (iPad Pro 13") - Required for iPad apps
+- `ipad-12.9`: 2048x2732 (iPad Pro 12.9")
+- `ipad-11`: 1668x2388 (iPad Pro 11")
+
+**Android:**
+- `android-phone`: 1080x1920 (9:16 portrait)
+- `android-tablet-7`: 1080x1920 (7" tablet)
+- `android-tablet-10`: 1200x1920 (10" tablet)
+- `android-wear`: 384x384 (Wear OS, 1:1 square)
+
+### Templates
+
+| Template | Description | Use Case |
+|----------|-------------|----------|
+| `default` | Gradient background with decorative blurs | App Store marketing |
+| `minimal` | Solid color background | Clean, simple look |
+| `plain` | Screenshot only, no frame | Play Store, custom framing |
+| `photo` | Background image support | Lifestyle/contextual shots |
+| `split` | Side-by-side text + device | iPad, landscape-friendly |
 
 ### Dependencies
 
@@ -64,12 +88,20 @@ src/
 
 ## Testing
 
-Test the CLI locally:
+Test projects are in `tmp/` (gitignored):
 
 ```bash
-node src/cli.js init --dir ./test-project
-# Add a screenshot to ./test-project/screenshots/
-node src/cli.js generate --config ./test-project/storepix.config.js
+# Initialize test project
+node src/cli.js init --dir ./tmp/test --template default
+
+# Copy test screenshots
+cp /path/to/screenshots/*.png ./tmp/test/screenshots/
+
+# Generate screenshots
+node src/cli.js generate --config ./tmp/test/storepix.config.js
+
+# Preview template
+node src/cli.js preview --config ./tmp/test/storepix.config.js
 ```
 
 ## Publishing

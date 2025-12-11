@@ -61,10 +61,7 @@
 ## v2.x - Future
 
 ### Advanced Features
-- [ ] Video frame support (App Preview screenshots)
-- [ ] A/B variants (generate multiple headline options)
 - [ ] Annotation overlays (arrows, highlights, callouts)
-- [ ] Batch generation from Figma/Sketch exports
 - [ ] Output optimization (PNG compression with sharp/pngquant)
 
 ### CI/CD Integration
