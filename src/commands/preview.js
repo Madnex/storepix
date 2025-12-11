@@ -53,9 +53,8 @@ const RELOAD_SCRIPT = `
  * Open browser window at device size using Playwright
  * @param {string} url - URL to open
  * @param {Object} device - Device definition with width/height
- * @param {boolean} watchMode - Whether watch mode is enabled
  */
-async function openBrowserWindow(url, device, watchMode) {
+async function openBrowserWindow(url, device) {
   try {
     const { chromium } = await import('playwright');
 
@@ -69,21 +68,24 @@ async function openBrowserWindow(url, device, watchMode) {
       0.5 // Max 50% scale for readability
     );
 
-    const viewportWidth = Math.round(device.width * scale);
-    const viewportHeight = Math.round(device.height * scale);
+    // Window size on screen (scaled down to fit)
+    const windowWidth = Math.round(device.width * scale);
+    const windowHeight = Math.round(device.height * scale);
 
-    console.log(`  Opening browser at ${viewportWidth}x${viewportHeight} (${Math.round(scale * 100)}% of ${device.width}x${device.height})`);
+    console.log(`  Opening browser at ${windowWidth}x${windowHeight} (${Math.round(scale * 100)}% of ${device.width}x${device.height})`);
 
     const browser = await chromium.launch({
       headless: false,
       args: [
-        `--window-size=${viewportWidth + 16},${viewportHeight + 100}`, // Add chrome UI space
+        `--window-size=${windowWidth + 16},${windowHeight + 100}`, // Add chrome UI space
       ]
     });
 
+    // Use full device resolution for viewport, but scale display via deviceScaleFactor
+    // This makes the template render at correct dimensions while fitting on screen
     const context = await browser.newContext({
-      viewport: { width: viewportWidth, height: viewportHeight },
-      deviceScaleFactor: 1 / scale, // High DPI for crisp rendering
+      viewport: { width: device.width, height: device.height },
+      deviceScaleFactor: scale, // Scale down the rendering
     });
 
     const page = await context.newPage();
@@ -185,8 +187,12 @@ export async function preview(options) {
         public: configDir,
         directoryListing: false,
         rewrites: [
+          // Serve template index at root
           { source: '/', destination: `/templates/${config.template}/index.html` },
           { source: '/index.html', destination: `/templates/${config.template}/index.html` },
+          // Serve template assets (CSS, JS, images) from template directory
+          { source: '/styles.css', destination: `/templates/${config.template}/styles.css` },
+          { source: '/status-bar/**', destination: `/templates/status-bar/**` },
         ]
       });
     } catch (err) {
@@ -287,7 +293,6 @@ export async function preview(options) {
 
       // Add device parameters if opening browser
       if (shouldOpen && selectedDevice) {
-        const deviceInfo = deviceKey || (config.devices && config.devices[0]) || defaultDevice;
         const device = selectedDevice;
         params.set('deviceWidth', device.width.toString());
         params.set('deviceHeight', device.height.toString());
