@@ -107,9 +107,20 @@ export default {
   },
 
   // Device sizes to generate
-  // iPhone: 'iphone-6.9', 'iphone-6.7', 'iphone-6.5', 'iphone-6.3', 'iphone-6.1', 'iphone-5.5', 'iphone-4.7'
-  // iPad: 'ipad-13', 'ipad-12.9', 'ipad-11'
-  // Android: 'android-phone', 'android-tablet-7', 'android-tablet-10', 'android-wear'
+  // iPhone:
+  //   'iphone-6.9'  - iPhone 16 Pro Max, 16 Plus, 15 Pro Max (REQUIRED for App Store)
+  //   'iphone-6.7'  - iPhone 15 Pro Max
+  //   'iphone-6.5'  - iPhone 14 Plus, 13 Pro Max, 12 Pro Max (fallback if no 6.9)
+  //   'iphone-6.3'  - iPhone 16 Pro, 16, 15 Pro, 15, 14 Pro
+  //   'iphone-6.1'  - iPhone 16e, 14, 13, 12, 11, X
+  //   'iphone-5.5'  - iPhone 8 Plus, 7 Plus, 6S Plus (home button)
+  //   'iphone-4.7'  - iPhone SE, 8, 7, 6S (home button)
+  // iPad:
+  //   'ipad-13'     - iPad Pro 13", iPad Air M3/M2 (REQUIRED for iPad apps)
+  //   'ipad-12.9'   - iPad Pro 12.9" (older)
+  //   'ipad-11'     - iPad Pro 11", iPad Air, iPad mini
+  // Android:
+  //   'android-phone', 'android-tablet-7', 'android-tablet-10', 'android-wear'
   devices: ['iphone-6.5'],
 
   // Theme customization (injected as CSS variables)
