@@ -41,10 +41,11 @@ export function validateScreenshot(filePath, device) {
     return { valid: false, errors, warnings, dimensions: null };
   }
 
-  // Extract dimensions from IHDR chunk (bytes 16-23)
-  // IHDR structure: width (4 bytes), height (4 bytes), bit depth (1), color type (1), ...
+  // Extract dimensions from IHDR chunk
+  // PNG structure: signature (8) + chunk length (4) + "IHDR" (4) + width (4) + height (4) + ...
+  // So width is at offset 16, height at offset 20
   const width = buffer.readUInt32BE(16);
-  const height = buffer.readUInt32BE(24);
+  const height = buffer.readUInt32BE(20);
 
   // Validate dimensions match device
   if (width !== device.width || height !== device.height) {
@@ -55,6 +56,7 @@ export function validateScreenshot(filePath, device) {
 
   // Check color type for transparency
   // Color types: 0=grayscale, 2=RGB, 3=indexed, 4=grayscale+alpha, 6=RGBA
+  // Color type is at offset 25: signature (8) + length (4) + IHDR (4) + width (4) + height (4) + bit depth (1)
   const colorType = buffer.readUInt8(25);
   const hasAlphaChannel = colorType === 4 || colorType === 6;
 
