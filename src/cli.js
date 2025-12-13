@@ -5,6 +5,7 @@ import { init } from './commands/init.js';
 import { generate } from './commands/generate.js';
 import { preview } from './commands/preview.js';
 import { upgrade } from './commands/upgrade.js';
+import { addTemplate } from './commands/add-template.js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -55,5 +56,11 @@ program
   .option('--force', 'Force upgrade even if already up to date')
   .option('--show-diff', 'Show detailed diff of changes')
   .action(upgrade);
+
+program
+  .command('add-template <name>')
+  .description('Add a template to your project')
+  .option('-d, --dir <path>', 'Project directory', './storepix')
+  .action(addTemplate);
 
 program.parse();
