@@ -4,6 +4,7 @@ import { resolve, dirname, join } from 'path';
 import { pathToFileURL } from 'url';
 import handler from 'serve-handler';
 import { devices, getDevice, defaultDevice } from '../devices/index.js';
+import { templateExistsInProject, tryAddTemplate, getAvailableTemplates } from '../utils/template-helper.js';
 
 // SSE clients for watch mode
 let sseClients = [];
@@ -119,13 +120,24 @@ export async function preview(options) {
   const configDir = dirname(configPath);
   let config = (await import(pathToFileURL(configPath).href)).default;
 
-  // Template path
-  const templateDir = join(configDir, 'templates', config.template || 'default');
+  // Determine template (CLI option overrides config)
+  const template = options.template || config.template || 'default';
 
-  if (!existsSync(templateDir)) {
-    console.log(`  Template not found: ${templateDir}\n`);
-    process.exit(1);
+  // Check if template exists in project, try to add it if not
+  if (!templateExistsInProject(configDir, template)) {
+    console.log(`\n  Template "${template}" not found in project, attempting to add it...`);
+    const result = tryAddTemplate(configDir, template);
+    if (result.success) {
+      console.log(`  ${result.message}\n`);
+    } else {
+      console.log(`\n  Error: ${result.message}`);
+      console.log(`\n  Tip: Run "npx storepix add-template <name>" to add a template.`);
+      console.log(`  Available templates: ${getAvailableTemplates().join(', ')}\n`);
+      process.exit(1);
+    }
   }
+
+  const templateDir = join(configDir, 'templates', template);
 
   // Create server
   const server = createServer(async (req, res) => {
@@ -158,7 +170,7 @@ export async function preview(options) {
       try {
         let filePath;
         if (pathname === '/' || pathname === '/index.html') {
-          filePath = join(configDir, 'templates', config.template || 'default', 'index.html');
+          filePath = join(configDir, 'templates', template, 'index.html');
         } else {
           filePath = join(configDir, pathname.slice(1));
         }
@@ -188,10 +200,10 @@ export async function preview(options) {
         directoryListing: false,
         rewrites: [
           // Serve template index at root
-          { source: '/', destination: `/templates/${config.template}/index.html` },
-          { source: '/index.html', destination: `/templates/${config.template}/index.html` },
+          { source: '/', destination: `/templates/${template}/index.html` },
+          { source: '/index.html', destination: `/templates/${template}/index.html` },
           // Serve template assets (CSS, JS, images) from template directory
-          { source: '/styles.css', destination: `/templates/${config.template}/styles.css` },
+          { source: '/styles.css', destination: `/templates/${template}/styles.css` },
           { source: '/status-bar/**', destination: `/templates/status-bar/**` },
         ]
       });
@@ -272,7 +284,7 @@ export async function preview(options) {
 
   server.listen(port, async () => {
     console.log(`\n  storepix preview server running\n`);
-    console.log(`  Template: ${config.template}`);
+    console.log(`  Template: ${template}`);
     console.log(`  URL: http://localhost:${port}`);
     if (watchMode && watcher) {
       console.log(`  Watch mode: enabled`);

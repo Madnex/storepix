@@ -6,6 +6,7 @@ import { pathToFileURL } from 'url';
 import handler from 'serve-handler';
 import { devices, getDevice } from '../devices/index.js';
 import { validateAllScreenshots, printValidationResults } from '../utils/validation.js';
+import { templateExistsInProject, tryAddTemplate, getAvailableTemplates } from '../utils/template-helper.js';
 
 /**
  * Start a local HTTP server to serve template files
@@ -133,17 +134,25 @@ export async function generate(options) {
     process.exit(1);
   }
 
-  // Template path
-  const templateDir = join(configDir, 'templates', config.template || 'default');
-  const htmlPath = join(templateDir, 'index.html');
+  // Determine template (CLI option overrides config)
+  const template = options.template || config.template || 'default';
 
-  if (!existsSync(htmlPath)) {
-    console.log(`  Error: Template not found`);
-    console.log(`    Path: ${templateDir}`);
-    console.log(`\n  Tip: Make sure your template folder contains an index.html file.`);
-    console.log(`  Available templates: default, minimal, plain\n`);
-    process.exit(1);
+  // Check if template exists in project, try to add it if not
+  if (!templateExistsInProject(configDir, template)) {
+    console.log(`  Template "${template}" not found in project, attempting to add it...`);
+    const result = tryAddTemplate(configDir, template);
+    if (result.success) {
+      console.log(`  ${result.message}\n`);
+    } else {
+      console.log(`\n  Error: ${result.message}`);
+      console.log(`\n  Tip: Run "npx storepix add-template <name>" to add a template.`);
+      console.log(`  Available templates: ${getAvailableTemplates().join(', ')}\n`);
+      process.exit(1);
+    }
   }
+
+  const templateDir = join(configDir, 'templates', template);
+  const htmlPath = join(templateDir, 'index.html');
 
   // Validate screenshot dimensions (unless skipped)
   if (!options.skipValidation) {
@@ -162,7 +171,6 @@ export async function generate(options) {
   }
 
   // Start local HTTP server (needed for fetch() to work in templates)
-  const template = config.template || 'default';
   const { server, port } = await startServer(configDir, template);
   const baseUrl = `http://localhost:${port}`;
 
