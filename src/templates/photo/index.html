@@ -129,14 +129,14 @@
       const statusBarFile = config.platform === 'android' ? 'android.html' : 'ios.html';
 
       try {
-        const response = await fetch(`./status-bar/${statusBarFile}`);
+        const response = await fetch(`/status-bar/${statusBarFile}`);
         if (!response.ok) throw new Error('Status bar not found');
         const html = await response.text();
         container.innerHTML = html;
 
         const link = document.createElement('link');
         link.rel = 'stylesheet';
-        link.href = './status-bar/styles.css';
+        link.href = '/status-bar/styles.css';
         document.head.appendChild(link);
 
         const statusBar = document.getElementById('status-bar');

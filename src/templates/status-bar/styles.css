@@ -34,73 +34,74 @@
    iOS Status Bar
    ============================================ */
 .status-bar-ios {
-  height: calc(54px * var(--scale));
-  padding: 0 calc(32px * var(--scale));
-  padding-top: calc(14px * var(--scale));
+  /* Dimensions scaled to match template's device-screen (920x1993 base) */
+  height: calc(120px * var(--scale));
+  padding: 0 calc(70px * var(--scale));
+  padding-top: calc(32px * var(--scale));
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', sans-serif;
-  font-size: calc(17px * var(--scale));
+  font-size: calc(38px * var(--scale));
   font-weight: 600;
   color: #000;
 }
 
 .status-bar-ios .status-bar-left {
-  gap: calc(6px * var(--scale));
+  gap: calc(14px * var(--scale));
 }
 
 .status-bar-ios .status-bar-right {
-  gap: calc(5px * var(--scale));
+  gap: calc(12px * var(--scale));
 }
 
 .status-bar-ios .status-time {
   font-feature-settings: 'tnum';
-  letter-spacing: calc(-0.5px * var(--scale));
+  letter-spacing: calc(-1px * var(--scale));
 }
 
 .status-bar-ios .status-signal {
-  width: calc(17px * var(--scale));
-  height: calc(11px * var(--scale));
+  width: calc(38px * var(--scale));
+  height: calc(24px * var(--scale));
 }
 
 .status-bar-ios .status-wifi {
-  width: calc(16px * var(--scale));
-  height: calc(12px * var(--scale));
+  width: calc(36px * var(--scale));
+  height: calc(26px * var(--scale));
 }
 
 .status-bar-ios .status-battery {
   display: flex;
   align-items: center;
-  gap: calc(4px * var(--scale));
+  gap: calc(8px * var(--scale));
 }
 
 .status-bar-ios .status-battery-icon {
-  width: calc(25px * var(--scale));
-  height: calc(12px * var(--scale));
+  width: calc(56px * var(--scale));
+  height: calc(26px * var(--scale));
 }
 
 .status-bar-ios .status-battery-percent {
-  font-size: calc(15px * var(--scale));
+  font-size: calc(34px * var(--scale));
   font-weight: 500;
 }
 
-/* iOS Dynamic Island adjustment */
+/* iOS Dynamic Island adjustment - asymmetric padding for proper positioning */
 .status-bar-ios.has-dynamic-island {
-  padding-left: calc(120px * var(--scale));
-  padding-right: calc(120px * var(--scale));
+  padding-left: calc(80px * var(--scale));
+  padding-right: calc(40px * var(--scale));
 }
 
 /* iOS Notch adjustment */
 .status-bar-ios.has-notch {
-  height: calc(54px * var(--scale));
-  padding-left: calc(28px * var(--scale));
-  padding-right: calc(28px * var(--scale));
+  height: calc(120px * var(--scale));
+  padding-left: calc(60px * var(--scale));
+  padding-right: calc(60px * var(--scale));
 }
 
 /* iOS Home Button devices (no notch) */
 .status-bar-ios.no-notch {
-  height: calc(40px * var(--scale));
-  padding-top: calc(10px * var(--scale));
-  padding-left: calc(16px * var(--scale));
-  padding-right: calc(16px * var(--scale));
+  height: calc(88px * var(--scale));
+  padding-top: calc(22px * var(--scale));
+  padding-left: calc(36px * var(--scale));
+  padding-right: calc(36px * var(--scale));
 }
 
 /* ============================================

@@ -1,9 +1,52 @@
 import { chromium } from 'playwright';
+import { createServer } from 'http';
 import { existsSync, mkdirSync, statSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { pathToFileURL } from 'url';
+import handler from 'serve-handler';
 import { devices, getDevice } from '../devices/index.js';
 import { validateAllScreenshots, printValidationResults } from '../utils/validation.js';
+
+/**
+ * Start a local HTTP server to serve template files
+ * This is needed because fetch() doesn't work with file:// URLs
+ */
+function startServer(configDir, template) {
+  return new Promise((resolvePromise) => {
+    const server = createServer(async (req, res) => {
+      await handler(req, res, {
+        public: configDir,
+        directoryListing: false,
+        cleanUrls: false,
+        trailingSlash: false,
+        rewrites: [
+          { source: '/', destination: `/templates/${template}/index.html` },
+          { source: '/index.html', destination: `/templates/${template}/index.html` },
+          { source: '/styles.css', destination: `/templates/${template}/styles.css` },
+          // Status bar files - explicit rewrites for each file
+          { source: '/status-bar/ios.html', destination: '/templates/status-bar/ios.html' },
+          { source: '/status-bar/android.html', destination: '/templates/status-bar/android.html' },
+          { source: '/status-bar/styles.css', destination: '/templates/status-bar/styles.css' },
+        ]
+      });
+    });
+
+    // Find available port starting from 3456
+    let port = 3456;
+    const tryListen = () => {
+      server.once('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          port++;
+          tryListen();
+        }
+      });
+      server.listen(port, () => {
+        resolvePromise({ server, port });
+      });
+    };
+    tryListen();
+  });
+}
 
 export async function generate(options) {
   const configPath = resolve(options.config);
@@ -118,6 +161,11 @@ export async function generate(options) {
     }
   }
 
+  // Start local HTTP server (needed for fetch() to work in templates)
+  const template = config.template || 'default';
+  const { server, port } = await startServer(configDir, template);
+  const baseUrl = `http://localhost:${port}`;
+
   // Launch browser
   const browser = await chromium.launch();
 
@@ -162,8 +210,9 @@ export async function generate(options) {
           }
 
           // Build URL parameters
+          // Use relative path for screenshot so it's served via HTTP
           const params = new URLSearchParams({
-            screenshot: join(configDir, screenshot.source),
+            screenshot: screenshot.source,
             headline,
             subheadline,
             theme: screenshot.theme || 'light',
@@ -187,7 +236,7 @@ export async function generate(options) {
             ...(config.theme && { themeJson: JSON.stringify(config.theme) })
           });
 
-          const url = `${pathToFileURL(htmlPath).href}?${params.toString()}`;
+          const url = `${baseUrl}?${params.toString()}`;
 
           await page.goto(url, { waitUntil: 'networkidle' });
 
@@ -222,6 +271,11 @@ export async function generate(options) {
             console.log(`        Source: ${screenshot.source}`);
           }
 
+          // Wait for status bar to load if enabled
+          if (config.statusBar?.enabled) {
+            await page.waitForTimeout(500);
+          }
+
           // Small delay for any animations/rendering
           await page.waitForTimeout(300);
 
@@ -243,6 +297,7 @@ export async function generate(options) {
     }
   } finally {
     await browser.close();
+    server.close();
   }
 
   console.log(`\n  Done! Generated ${totalGenerated} screenshots.\n`);

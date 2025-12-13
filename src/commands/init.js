@@ -133,6 +133,8 @@ export default {
   },
 
   // Status bar injection (adds realistic status bar to screenshots)
+  // Note: Use screenshots WITHOUT a visible status bar for best results.
+  // This feature draws a status bar on top - it does not remove existing ones.
   // statusBar: {
   //   enabled: true,           // Set to true to show status bar
   //   time: '9:41',            // Displayed time
