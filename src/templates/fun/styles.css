@@ -235,19 +235,19 @@ body {
   top: calc(200px * var(--scale));
 }
 
-/* First headline: top-left of first screen */
+/* First headline: bottom-left of first screen */
 .screenshot-frame.panorama.slices-2 #headline-container-0 {
   left: calc(80px * var(--scale));
-  top: calc(100px * var(--scale));
-  bottom: auto;
+  bottom: calc(200px * var(--scale));
+  top: auto;
 }
 
-/* Second headline: bottom-left of second screen */
+/* Second headline: bottom-right area of second screen */
 .screenshot-frame.panorama.slices-2 #headline-container-1 {
   display: flex !important;
   flex-direction: column;
   align-items: flex-start;
-  left: calc(var(--viewport-width) + 80px * var(--scale));
+  left: calc(var(--viewport-width) + 500px * var(--scale));
   bottom: calc(200px * var(--scale));
   top: auto;
 }
