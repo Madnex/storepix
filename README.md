@@ -101,7 +101,6 @@ Templates are plain HTML/CSS - modify anything:
 
 - Add Tailwind via CDN
 - Use custom fonts
-- Create animations
 - Restructure the layout
 - Copy a template and make your own
 

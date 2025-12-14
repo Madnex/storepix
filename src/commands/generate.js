@@ -24,6 +24,8 @@ function startServer(configDir, template) {
           { source: '/', destination: `/templates/${template}/index.html` },
           { source: '/index.html', destination: `/templates/${template}/index.html` },
           { source: '/styles.css', destination: `/templates/${template}/styles.css` },
+          // Custom content helper script
+          { source: '/storepix-content.js', destination: '/templates/storepix-content.js' },
           // Status bar files - explicit rewrites for each file
           { source: '/status-bar/ios.html', destination: '/templates/status-bar/ios.html' },
           { source: '/status-bar/android.html', destination: '/templates/status-bar/android.html' },
@@ -221,6 +223,27 @@ export async function generate(options) {
             subheadlines = localized.subheadlines || subheadlines;
           }
 
+          // Collect custom content (any keys not reserved by storepix)
+          const reservedKeys = new Set([
+            'id', 'source', 'theme', 'layout', 'slices',
+            'headline', 'subheadline', 'headlines', 'subheadlines'
+          ]);
+          const customContent = {};
+          for (const [key, value] of Object.entries(screenshot)) {
+            if (!reservedKeys.has(key)) {
+              customContent[key] = value;
+            }
+          }
+          // Merge with locale overrides for custom content
+          if (locale && config.locales?.[locale]?.[screenshot.id]) {
+            const localized = config.locales[locale][screenshot.id];
+            for (const [key, value] of Object.entries(localized)) {
+              if (!reservedKeys.has(key)) {
+                customContent[key] = value;
+              }
+            }
+          }
+
           // Determine number of slices (for panorama mode)
           const slices = screenshot.slices || 1;
           const isPanorama = slices > 1;
@@ -260,6 +283,11 @@ export async function generate(options) {
           }
           if (isPanorama && subheadlines) {
             params.set('subheadlines', JSON.stringify(subheadlines));
+          }
+
+          // Add custom content for data-storepix bindings
+          if (Object.keys(customContent).length > 0) {
+            params.set('customContent', JSON.stringify(customContent));
           }
 
           const url = `${baseUrl}?${params.toString()}`;

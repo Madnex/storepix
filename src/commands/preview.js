@@ -213,6 +213,8 @@ export async function preview(options) {
           { source: '/index.html', destination: `/templates/${template}/index.html` },
           // Serve template assets (CSS, JS, images) from template directory
           { source: '/styles.css', destination: `/templates/${template}/styles.css` },
+          // Custom content helper script
+          { source: '/storepix-content.js', destination: '/templates/storepix-content.js' },
           { source: '/status-bar/**', destination: `/templates/status-bar/**` },
         ]
       });

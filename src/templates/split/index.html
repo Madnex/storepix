@@ -33,6 +33,7 @@
     </div>
   </div>
 
+  <script src="../storepix-content.js"></script>
   <script>
     const urlParams = new URLSearchParams(window.location.search);
 
@@ -108,6 +109,9 @@
     document.documentElement.style.setProperty('--viewport-height', config.deviceHeight + 'px');
     const scale = config.deviceWidth / 1284;
     document.documentElement.style.setProperty('--scale', scale);
+
+    // Apply custom content from data-storepix attributes
+    applyCustomContent(urlParams);
 
     // Status bar initialization
     if (config.statusBar) {
