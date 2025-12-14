@@ -1,0 +1,275 @@
+/* storepix - Tilt Template Styles */
+/* 3D perspective phone with text on left */
+
+:root {
+  /* Primary brand color - customize via config */
+  --primary: #007AFF;
+  --primary-dark: #0056b3;
+
+  /* Accent colors */
+  --accent-1: #5AC8FA;
+  --accent-2: #AF52DE;
+  --accent-3: #FF9500;
+
+  /* Light theme (default) */
+  --background: #5B4B8A;
+  --foreground: #FFFFFF;
+  --foreground-secondary: rgba(255, 255, 255, 0.8);
+  --card: #FFFFFF;
+
+  /* Device frame */
+  --device-frame: #1a1a1a;
+
+  /* Home indicator */
+  --home-indicator-light: #333333;
+  --home-indicator-dark: #CCCCCC;
+  --home-indicator: var(--home-indicator-light);
+
+  /* Transform settings - using skew for perspective effect */
+  --tilt-rotate: -30deg;
+  --tilt-skew: 30deg;
+
+  /* Typography */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* Dynamic viewport (set by JavaScript) */
+  --viewport-width: 1284px;
+  --viewport-height: 2778px;
+  --scale: 1;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-family);
+  background: var(--background);
+  overflow: hidden;
+}
+
+/* ============================================
+   Main Screenshot Frame
+   ============================================ */
+.screenshot-frame {
+  width: var(--viewport-width);
+  height: var(--viewport-height);
+  position: relative;
+  background: var(--background);
+  overflow: hidden;
+}
+
+/* ============================================
+   Dark Theme
+   ============================================ */
+.dark-theme {
+  --background: #1a1a2e;
+  --foreground: #FFFFFF;
+  --foreground-secondary: rgba(255, 255, 255, 0.7);
+  --home-indicator: var(--home-indicator-dark);
+}
+
+/* ============================================
+   Headlines - Left aligned, bottom positioned
+   ============================================ */
+.headline-container {
+  position: absolute;
+  left: calc(80px * var(--scale));
+  bottom: calc(180px * var(--scale));
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(16px * var(--scale));
+  max-width: calc(550px * var(--scale));
+}
+
+.headline {
+  font-size: calc(100px * var(--scale));
+  font-weight: 800;
+  color: var(--foreground);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.subheadline {
+  font-size: calc(48px * var(--scale));
+  font-weight: 500;
+  color: var(--foreground-secondary);
+  line-height: 1.3;
+}
+
+/* ============================================
+   Device Mockup - 3D Perspective
+   ============================================ */
+.device-container {
+  position: absolute;
+  right: calc(-100px * var(--scale));
+  top: 50%;
+  transform: translateY(-50%) rotate(var(--tilt-rotate)) skewX(var(--tilt-skew));
+  z-index: 5;
+}
+
+.device-frame {
+  position: relative;
+  background: var(--device-frame);
+  border-radius: calc(144px * var(--scale)) calc(80px * var(--scale)) calc(168px * var(--scale)) calc(100px * var(--scale));
+  padding: calc(26px * var(--scale));
+  /* Enhanced shadow for skewed depth effect */
+  box-shadow:
+    calc(-26px * var(--scale)) calc(8px * var(--scale)) calc(8px * var(--scale)) calc(-10px * var(--scale)) rgba(0, 0, 0, 0.3),
+    calc(-6px * var(--scale)) calc(6px * var(--scale)) calc(6px * var(--scale)) 0 rgba(0, 0, 0, 0.6),
+    calc(-30px * var(--scale)) calc(14px * var(--scale)) calc(10px * var(--scale)) calc(-10px * var(--scale)) rgba(0, 0, 0, 0.5),
+    calc(-20px * var(--scale)) calc(40px * var(--scale)) calc(8px * var(--scale)) 0 rgba(0, 0, 0, 0.1),
+    inset calc(20px * var(--scale)) 0 calc(15px * var(--scale)) calc(-6px * var(--scale)) rgba(0, 0, 0, 0.6),
+    inset calc(2px * var(--scale)) 0 calc(4px * var(--scale)) calc(-2px * var(--scale)) rgba(0, 0, 0, 0.6),
+    inset 0 calc(-15px * var(--scale)) calc(10px * var(--scale)) calc(-10px * var(--scale)) rgba(255, 255, 255, 0.15);
+}
+
+/* ============================================
+   Phone Back Edge (visible due to skew)
+   ============================================ */
+.device-back {
+  position: absolute;
+  top: calc(-6px * var(--scale));
+  left: calc(-14px * var(--scale));
+  width: calc(972px * var(--scale));
+  height: calc(2045px * var(--scale));
+  background: linear-gradient(to bottom, #3a3b3f 70%, #1d1d1f);
+  border-radius: calc(148px * var(--scale)) calc(80px * var(--scale)) calc(168px * var(--scale)) calc(100px * var(--scale));
+  z-index: -1;
+  box-shadow:
+    calc(-26px * var(--scale)) calc(8px * var(--scale)) calc(8px * var(--scale)) calc(-10px * var(--scale)) rgba(0, 0, 0, 0.3),
+    calc(-6px * var(--scale)) calc(6px * var(--scale)) calc(6px * var(--scale)) 0 rgba(0, 0, 0, 0.6),
+    calc(-30px * var(--scale)) calc(14px * var(--scale)) calc(10px * var(--scale)) calc(-10px * var(--scale)) rgba(0, 0, 0, 0.5),
+    inset calc(20px * var(--scale)) 0 calc(15px * var(--scale)) calc(-6px * var(--scale)) rgba(0, 0, 0, 0.6),
+    inset 0 calc(-15px * var(--scale)) calc(10px * var(--scale)) calc(-10px * var(--scale)) rgba(255, 255, 255, 0.15);
+}
+
+/* Highlight on back edge */
+.device-back::before {
+  content: "";
+  position: absolute;
+  left: calc(16px * var(--scale));
+  bottom: calc(40px * var(--scale));
+  width: calc(100px * var(--scale));
+  height: calc(300px * var(--scale));
+  background: #fff;
+  border-radius: calc(20px * var(--scale));
+  filter: blur(calc(5px * var(--scale)));
+  opacity: 0.1;
+  transform: rotate(4deg);
+}
+
+.device-back::after {
+  content: "";
+  position: absolute;
+  left: calc(26px * var(--scale));
+  bottom: calc(40px * var(--scale));
+  width: calc(100px * var(--scale));
+  height: calc(300px * var(--scale));
+  background: #fff;
+  border-radius: calc(20px * var(--scale));
+  filter: blur(calc(4px * var(--scale)));
+  opacity: 0.25;
+  transform: rotate(2deg);
+}
+
+/* ============================================
+   Side Buttons
+   ============================================ */
+.device-side-buttons {
+  position: absolute;
+  left: calc(-8px * var(--scale));
+  top: calc(280px * var(--scale));
+  z-index: 10;
+}
+
+.side-button {
+  position: absolute;
+  left: 0;
+  width: calc(6px * var(--scale));
+  background: #2d2d2f;
+  border-radius: calc(3px * var(--scale));
+}
+
+.side-button.silent {
+  top: 0;
+  height: calc(50px * var(--scale));
+}
+
+.side-button.volume-up {
+  top: calc(90px * var(--scale));
+  height: calc(80px * var(--scale));
+}
+
+.side-button.volume-down {
+  top: calc(190px * var(--scale));
+  height: calc(80px * var(--scale));
+}
+
+/* Dynamic Island */
+.device-notch {
+  position: absolute;
+  top: calc(54px * var(--scale));
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(210px * var(--scale));
+  height: calc(62px * var(--scale));
+  background: #000000;
+  border-radius: calc(31px * var(--scale));
+  z-index: 20;
+}
+
+/* Home Button (for iPhone 8 Plus and older) */
+.device-home-button {
+  display: none;
+  position: absolute;
+  bottom: calc(40px * var(--scale));
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(160px * var(--scale));
+  height: calc(160px * var(--scale));
+  border-radius: 50%;
+  border: calc(6px * var(--scale)) solid var(--home-indicator);
+  background: transparent;
+  z-index: 20;
+}
+
+.device-screen {
+  width: calc(920px * var(--scale));
+  height: calc(1993px * var(--scale));
+  border-radius: calc(96px * var(--scale)) calc(74px * var(--scale)) calc(104px * var(--scale)) calc(90px * var(--scale));
+  overflow: hidden;
+  background: var(--card);
+  position: relative;
+}
+
+.device-screen img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ============================================
+   Layout Variant: Center - text above device
+   ============================================ */
+.screenshot-frame.layout-center .headline-container {
+  left: 50%;
+  top: calc(120px * var(--scale));
+  transform: translateX(-50%);
+  text-align: center;
+  align-items: center;
+  max-width: calc(800px * var(--scale));
+}
+
+.screenshot-frame.layout-center .device-container {
+  right: auto;
+  left: 50%;
+  top: auto;
+  bottom: calc(-350px * var(--scale));
+  transform: translateX(-50%) rotate(var(--tilt-rotate)) skewX(var(--tilt-skew));
+}
