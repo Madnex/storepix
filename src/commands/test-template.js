@@ -296,6 +296,13 @@ function generateGalleryHtml(template, variants, results, deviceCount, outputDir
     if (variant.layout) variantDesc.push(`layout: ${variant.layout}`);
     if (variant.slices) variantDesc.push(`slices: ${variant.slices}`);
 
+    // Determine device type for filtering
+    const getDeviceType = (deviceKey) => {
+      if (deviceKey.startsWith('iphone')) return 'iphone';
+      if (deviceKey.startsWith('ipad')) return 'ipad';
+      return 'android';
+    };
+
     return `
     <section class="variant-section" data-variant="${variant.name}">
       <h2>
@@ -304,7 +311,7 @@ function generateGalleryHtml(template, variants, results, deviceCount, outputDir
       </h2>
       <div class="device-grid">
         ${variantResults.map(r => `
-        <div class="device-card" data-platform="${r.device.platform}" data-variant="${r.variantName}">
+        <div class="device-card" data-platform="${r.device.platform}" data-type="${getDeviceType(r.deviceKey)}" data-device="${r.deviceKey}" data-variant="${r.variantName}">
           <img src="output/${r.filename}" alt="${r.variantName} - ${r.device.name}" loading="lazy">
           <div class="device-info">
             <div class="device-name">${r.device.name}${r.totalSlices > 1 ? ` (slice ${r.sliceIndex}/${r.totalSlices})` : ''}</div>
@@ -370,6 +377,38 @@ function generateGalleryHtml(template, variants, results, deviceCount, outputDir
 
     .stat strong {
       color: #1d1d1f;
+    }
+
+    .filters {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      padding: 6px 14px;
+      border: 1px solid #d2d2d7;
+      border-radius: 20px;
+      background: #fff;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .filter-btn:hover {
+      border-color: #0071e3;
+      color: #0071e3;
+    }
+
+    .filter-btn.active {
+      background: #0071e3;
+      border-color: #0071e3;
+      color: #fff;
+    }
+
+    .device-card.hidden {
+      display: none;
     }
 
     .container {
@@ -524,6 +563,13 @@ function generateGalleryHtml(template, variants, results, deviceCount, outputDir
       <span class="stat"><strong>${results.length}</strong> images</span>
       <span class="stat">Devices: <strong>${deviceCount}</strong></span>
     </div>
+    <div class="filters">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="ios">iOS</button>
+      <button class="filter-btn" data-filter="android">Android</button>
+      <button class="filter-btn" data-filter="iphone">iPhone</button>
+      <button class="filter-btn" data-filter="ipad">iPad</button>
+    </div>
   </header>
 
   <main class="container">
@@ -537,7 +583,38 @@ function generateGalleryHtml(template, variants, results, deviceCount, outputDir
   </div>
 
   <script>
+    // Filter functionality
+    const filterBtns = document.querySelectorAll('.filter-btn');
     const cards = document.querySelectorAll('.device-card');
+    const sections = document.querySelectorAll('.variant-section');
+
+    filterBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        filterBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const filter = btn.dataset.filter;
+
+        cards.forEach(card => {
+          let show = false;
+          if (filter === 'all') show = true;
+          else if (filter === 'ios') show = card.dataset.platform === 'ios';
+          else if (filter === 'android') show = card.dataset.platform === 'android';
+          else if (filter === 'iphone') show = card.dataset.type === 'iphone';
+          else if (filter === 'ipad') show = card.dataset.type === 'ipad';
+
+          card.classList.toggle('hidden', !show);
+        });
+
+        // Hide empty sections
+        sections.forEach(section => {
+          const hasVisible = section.querySelectorAll('.device-card:not(.hidden)').length > 0;
+          section.style.display = hasVisible ? '' : 'none';
+        });
+      });
+    });
+
+    // Modal functionality
     const modal = document.getElementById('modal');
     const modalImg = modal.querySelector('img');
     const modalInfo = modal.querySelector('.modal-info');
@@ -643,19 +720,28 @@ export async function testTemplate(template, options) {
   const browser = await chromium.launch();
   const results = [];
 
+  // Calculate total expected images for progress
+  const totalExpectedImages = variants.reduce((sum, v) => {
+    const slices = v.slices || 1;
+    return sum + (deviceKeys.length * slices);
+  }, 0);
+
   try {
     // Phase 1: Generate mock screenshots
     console.log('  Generating mock screenshots...');
     const context = await browser.newContext();
     const page = await context.newPage();
 
-    for (const deviceKey of deviceKeys) {
+    for (let i = 0; i < deviceKeys.length; i++) {
+      const deviceKey = deviceKeys[i];
       const device = getDevice(deviceKey);
       const mockPath = join(mockDir, `${deviceKey}.png`);
       await generateMockScreenshot(page, device, deviceKey, mockPath);
-      process.stdout.write(`    ${deviceKey}\r`);
+      const progress = Math.round(((i + 1) / deviceKeys.length) * 100);
+      process.stdout.write(`\x1b[2K\r    [${progress}%] ${deviceKey}`);
     }
     await context.close();
+    process.stdout.write(`\x1b[2K\r`);
     console.log(`  Generated ${deviceKeys.length} mock screenshots\n`);
 
     // Phase 2: Start server and render all variants
@@ -669,11 +755,13 @@ export async function testTemplate(template, options) {
         const variantResults = await renderVariant(browser, baseUrl, mockDir, renderDir, deviceKey, variant);
         results.push(...variantResults);
         totalRendered += variantResults.length;
-        process.stdout.write(`    ${variant.name}/${deviceKey} (${totalRendered} images)\r`);
+        const progress = Math.round((totalRendered / totalExpectedImages) * 100);
+        process.stdout.write(`\x1b[2K\r    [${progress}%] ${variant.name}/${deviceKey}`);
       }
     }
 
     server.close();
+    process.stdout.write(`\x1b[2K\r`);
     console.log(`  Rendered ${results.length} screenshots\n`);
 
     // Phase 3: Generate gallery HTML
