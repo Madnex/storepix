@@ -104,10 +104,44 @@ node src/cli.js generate --config ./tmp/test/storepix.config.js
 node src/cli.js preview --config ./tmp/test/storepix.config.js
 ```
 
-## Publishing
+## Git Workflow
 
+**Branches:**
+- `main` - Production, protected, only merge via PR
+- `development` - Active development
+
+**Day-to-day:**
 ```bash
-npm version patch|minor|major
-npm publish
-git push --follow-tags
+git checkout development
+# make changes
+git commit -m "feat: description"
+git push
 ```
+
+## Releasing
+
+Releases are synced between GitHub and npm via git tags.
+
+**1. Create release PR:**
+```bash
+gh pr create --base main --head development --title "Release vX.Y.Z"
+```
+
+**2. After PR merged, release:**
+```bash
+git checkout main
+git pull
+npm version patch|minor|major   # Updates package.json + creates git tag
+npm publish                      # Publishes to npm
+git push --follow-tags           # Pushes commit + tag to GitHub
+```
+
+**3. Create GitHub release (optional but recommended):**
+```bash
+gh release create v0.1.0 --generate-notes
+```
+
+This keeps versions aligned:
+- `npm version` creates tag `v0.1.0`
+- `npm publish` publishes version `0.1.0` to npm
+- `gh release create v0.1.0` creates GitHub release from same tag
