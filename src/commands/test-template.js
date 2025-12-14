@@ -25,22 +25,55 @@ const DEFAULT_VARIANTS = [
 ];
 
 /**
- * Load test variants from template's test-variants.js
+ * Load test config from template's test-variants.js
+ * Returns { variants, devices }
  */
-async function loadVariants(template) {
+async function loadTestConfig(template) {
   const variantsPath = join(packageTemplatesDir, template, 'test-variants.js');
 
   if (existsSync(variantsPath)) {
     try {
       const module = await import(pathToFileURL(variantsPath).href);
-      return module.default || DEFAULT_VARIANTS;
+      const config = module.default || {};
+
+      // Handle both old format (array) and new format (object with variants/devices)
+      let variants, devicesConfig;
+
+      if (Array.isArray(config)) {
+        // Old format: just an array of variants
+        variants = config;
+        devicesConfig = 'default';
+      } else {
+        // New format: { devices, variants }
+        variants = config.variants || DEFAULT_VARIANTS;
+        devicesConfig = config.devices || 'default';
+      }
+
+      // Resolve devices config
+      let resolvedDevices;
+      if (devicesConfig === 'default') {
+        resolvedDevices = REPRESENTATIVE_DEVICES;
+      } else if (devicesConfig === 'all') {
+        resolvedDevices = deviceList;
+      } else if (Array.isArray(devicesConfig)) {
+        // Validate custom device list
+        const invalid = devicesConfig.filter(d => !devices[d]);
+        if (invalid.length > 0) {
+          console.log(`  Warning: Unknown devices in test-variants.js: ${invalid.join(', ')}`);
+        }
+        resolvedDevices = devicesConfig.filter(d => devices[d]);
+      } else {
+        resolvedDevices = REPRESENTATIVE_DEVICES;
+      }
+
+      return { variants, devices: resolvedDevices };
     } catch (err) {
       console.log(`  Warning: Failed to load test-variants.js: ${err.message}`);
-      return DEFAULT_VARIANTS;
+      return { variants: DEFAULT_VARIANTS, devices: REPRESENTATIVE_DEVICES };
     }
   }
 
-  return DEFAULT_VARIANTS;
+  return { variants: DEFAULT_VARIANTS, devices: REPRESENTATIVE_DEVICES };
 }
 
 /**
@@ -246,7 +279,7 @@ async function renderVariant(browser, baseUrl, mockDir, renderDir, deviceKey, va
 /**
  * Generate HTML gallery page organized by variants
  */
-function generateGalleryHtml(template, variants, results, outputDir) {
+function generateGalleryHtml(template, variants, results, deviceCount, outputDir) {
   // Group results by variant
   const byVariant = {};
   for (const r of results) {
@@ -489,7 +522,7 @@ function generateGalleryHtml(template, variants, results, outputDir) {
     <div class="header-meta">
       <span class="stat"><strong>${variants.length}</strong> variant${variants.length > 1 ? 's' : ''}</span>
       <span class="stat"><strong>${results.length}</strong> images</span>
-      <span class="stat">Devices: <strong>${REPRESENTATIVE_DEVICES.length}</strong></span>
+      <span class="stat">Devices: <strong>${deviceCount}</strong></span>
     </div>
   </header>
 
@@ -572,10 +605,7 @@ export async function testTemplate(template, options) {
   const outputDir = resolve(options.output || './.storepix-test');
   const shouldOpen = options.open !== false;
 
-  // Use representative devices unless specific device requested
-  const deviceKeys = options.device ? [options.device] : REPRESENTATIVE_DEVICES;
-
-  // Validate device if specified
+  // Validate device if specified via CLI
   if (options.device && !devices[options.device]) {
     console.log(`\n  Error: Unknown device "${options.device}"`);
     console.log(`\n  Available devices:`);
@@ -586,8 +616,12 @@ export async function testTemplate(template, options) {
     process.exit(1);
   }
 
-  // Load variants
-  const variants = await loadVariants(template);
+  // Load test config (variants and devices)
+  const testConfig = await loadTestConfig(template);
+  const variants = testConfig.variants;
+
+  // CLI device flag overrides config
+  const deviceKeys = options.device ? [options.device] : testConfig.devices;
 
   console.log(`\n  storepix test-template\n`);
   console.log(`  Template: ${template}`);
@@ -644,7 +678,7 @@ export async function testTemplate(template, options) {
 
     // Phase 3: Generate gallery HTML
     console.log('  Creating gallery...');
-    generateGalleryHtml(template, variants, results, outputDir);
+    generateGalleryHtml(template, variants, results, deviceKeys.length, outputDir);
     const galleryPath = join(outputDir, 'index.html');
     console.log(`  Gallery: ${galleryPath}\n`);
 
