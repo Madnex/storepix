@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import { createServer } from 'http';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join, dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import handler from 'serve-handler';
 import { devices, deviceList, getDevice } from '../devices/index.js';
 import { getAvailableTemplates } from '../utils/template-helper.js';
@@ -10,6 +10,38 @@ import { getAvailableTemplates } from '../utils/template-helper.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const packageTemplatesDir = join(__dirname, '..', 'templates');
+
+// Representative devices for testing (covers key variations)
+const REPRESENTATIVE_DEVICES = [
+  'iphone-6.5',    // Main iPhone size (required for App Store)
+  'iphone-5.5',    // Home button variant (no notch)
+  'ipad-13',       // iPad (required for iPad apps)
+  'android-phone', // Android
+];
+
+// Default variant if no test-variants.js exists
+const DEFAULT_VARIANTS = [
+  { name: 'default', headline: 'Feature Title', subheadline: 'Description text goes here' }
+];
+
+/**
+ * Load test variants from template's test-variants.js
+ */
+async function loadVariants(template) {
+  const variantsPath = join(packageTemplatesDir, template, 'test-variants.js');
+
+  if (existsSync(variantsPath)) {
+    try {
+      const module = await import(pathToFileURL(variantsPath).href);
+      return module.default || DEFAULT_VARIANTS;
+    } catch (err) {
+      console.log(`  Warning: Failed to load test-variants.js: ${err.message}`);
+      return DEFAULT_VARIANTS;
+    }
+  }
+
+  return DEFAULT_VARIANTS;
+}
 
 /**
  * Start HTTP server to serve templates and mock screenshots
@@ -113,9 +145,145 @@ async function generateMockScreenshot(page, device, deviceKey, outputPath) {
 }
 
 /**
- * Generate HTML gallery page
+ * Render a single variant for a device
  */
-function generateGalleryHtml(template, results, outputDir) {
+async function renderVariant(browser, baseUrl, mockDir, renderDir, deviceKey, variant) {
+  const device = getDevice(deviceKey);
+  const slices = variant.slices || 1;
+  const isPanorama = slices > 1;
+
+  const viewportWidth = device.width * slices;
+  const viewportHeight = device.height;
+
+  const ctx = await browser.newContext({
+    viewport: { width: viewportWidth, height: viewportHeight },
+    deviceScaleFactor: 1
+  });
+  const pg = await ctx.newPage();
+
+  // Build URL with parameters
+  const params = new URLSearchParams({
+    screenshot: `/mock/${deviceKey}.png`,
+    headline: variant.headline || 'Feature Title',
+    subheadline: variant.subheadline || 'Description text goes here',
+    theme: variant.theme || 'light',
+    layout: variant.layout || 'top',
+    slices: slices.toString(),
+    deviceWidth: device.width.toString(),
+    deviceHeight: device.height.toString(),
+    platform: device.platform,
+    notchType: device.frame?.notch?.type || 'none',
+    notchWidth: (device.frame?.notch?.width || 0).toString(),
+    notchHeight: (device.frame?.notch?.height || 0).toString(),
+    hasHomeButton: (device.frame?.homeButton || false).toString(),
+  });
+
+  // Add headlines/subheadlines arrays for panorama mode
+  if (isPanorama && variant.headlines) {
+    params.set('headlines', JSON.stringify(variant.headlines));
+  }
+  if (isPanorama && variant.subheadlines) {
+    params.set('subheadlines', JSON.stringify(variant.subheadlines));
+  }
+
+  await pg.goto(`${baseUrl}?${params.toString()}`, { waitUntil: 'networkidle' });
+  await pg.waitForTimeout(500);
+
+  const results = [];
+
+  if (isPanorama) {
+    // Capture each slice
+    for (let i = 0; i < slices; i++) {
+      const filename = `${variant.name}-${deviceKey}-${i + 1}.png`;
+      const outputPath = join(renderDir, filename);
+
+      await pg.screenshot({
+        path: outputPath,
+        type: 'png',
+        clip: {
+          x: i * device.width,
+          y: 0,
+          width: device.width,
+          height: device.height
+        }
+      });
+
+      results.push({
+        variantName: variant.name,
+        deviceKey,
+        device,
+        filename,
+        sliceIndex: i + 1,
+        totalSlices: slices,
+        variant
+      });
+    }
+  } else {
+    const filename = `${variant.name}-${deviceKey}.png`;
+    const outputPath = join(renderDir, filename);
+
+    await pg.screenshot({
+      path: outputPath,
+      type: 'png',
+      clip: { x: 0, y: 0, width: device.width, height: device.height }
+    });
+
+    results.push({
+      variantName: variant.name,
+      deviceKey,
+      device,
+      filename,
+      sliceIndex: null,
+      totalSlices: 1,
+      variant
+    });
+  }
+
+  await ctx.close();
+  return results;
+}
+
+/**
+ * Generate HTML gallery page organized by variants
+ */
+function generateGalleryHtml(template, variants, results, outputDir) {
+  // Group results by variant
+  const byVariant = {};
+  for (const r of results) {
+    if (!byVariant[r.variantName]) {
+      byVariant[r.variantName] = [];
+    }
+    byVariant[r.variantName].push(r);
+  }
+
+  const variantSections = variants.map(variant => {
+    const variantResults = byVariant[variant.name] || [];
+    const variantDesc = [];
+    if (variant.theme) variantDesc.push(`theme: ${variant.theme}`);
+    if (variant.layout) variantDesc.push(`layout: ${variant.layout}`);
+    if (variant.slices) variantDesc.push(`slices: ${variant.slices}`);
+
+    return `
+    <section class="variant-section" data-variant="${variant.name}">
+      <h2>
+        <code>${variant.name}</code>
+        ${variantDesc.length > 0 ? `<span class="variant-desc">${variantDesc.join(', ')}</span>` : ''}
+      </h2>
+      <div class="device-grid">
+        ${variantResults.map(r => `
+        <div class="device-card" data-platform="${r.device.platform}" data-variant="${r.variantName}">
+          <img src="output/${r.filename}" alt="${r.variantName} - ${r.device.name}" loading="lazy">
+          <div class="device-info">
+            <div class="device-name">${r.device.name}${r.totalSlices > 1 ? ` (slice ${r.sliceIndex}/${r.totalSlices})` : ''}</div>
+            <div class="device-meta">${r.device.width} × ${r.device.height} &middot; <code>${r.deviceKey}</code></div>
+          </div>
+        </div>
+        `).join('')}
+      </div>
+    </section>
+    `;
+  }).join('');
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -171,67 +339,43 @@ function generateGalleryHtml(template, results, outputDir) {
       color: #1d1d1f;
     }
 
-    .filters {
-      display: flex;
-      gap: 12px;
-      margin-top: 16px;
-    }
-
-    .filter-btn {
-      padding: 6px 14px;
-      border: 1px solid #d2d2d7;
-      border-radius: 20px;
-      background: #fff;
-      font-size: 13px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .filter-btn:hover {
-      border-color: #0071e3;
-      color: #0071e3;
-    }
-
-    .filter-btn.active {
-      background: #0071e3;
-      border-color: #0071e3;
-      color: #fff;
-    }
-
     .container {
       max-width: 1800px;
       margin: 0 auto;
       padding: 40px;
     }
 
-    .platform-section {
+    .variant-section {
       margin-bottom: 48px;
     }
 
-    .platform-section h2 {
+    .variant-section h2 {
       font-size: 18px;
       font-weight: 600;
       margin-bottom: 20px;
       color: #1d1d1f;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 12px;
     }
 
-    .platform-badge {
-      font-size: 11px;
-      font-weight: 500;
-      text-transform: uppercase;
-      padding: 3px 8px;
-      border-radius: 4px;
+    .variant-section h2 code {
+      background: #0071e3;
+      color: #fff;
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 14px;
     }
 
-    .platform-badge.ios { background: #e3f2fd; color: #1976d2; }
-    .platform-badge.android { background: #e8f5e9; color: #388e3c; }
+    .variant-desc {
+      font-size: 13px;
+      font-weight: 400;
+      color: #6e6e73;
+    }
 
     .device-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
       gap: 24px;
     }
 
@@ -247,10 +391,6 @@ function generateGalleryHtml(template, results, outputDir) {
     .device-card:hover {
       transform: translateY(-4px);
       box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    }
-
-    .device-card.hidden {
-      display: none;
     }
 
     .device-card img {
@@ -347,49 +487,14 @@ function generateGalleryHtml(template, results, outputDir) {
   <header class="header">
     <h1>Template: <code>${template}</code></h1>
     <div class="header-meta">
-      <span class="stat"><strong>${results.length}</strong> devices tested</span>
-      <span class="stat">iOS: <strong>${results.filter(r => r.device.platform === 'ios').length}</strong></span>
-      <span class="stat">Android: <strong>${results.filter(r => r.device.platform === 'android').length}</strong></span>
-    </div>
-    <div class="filters">
-      <button class="filter-btn active" data-filter="all">All</button>
-      <button class="filter-btn" data-filter="ios">iOS</button>
-      <button class="filter-btn" data-filter="android">Android</button>
-      <button class="filter-btn" data-filter="iphone">iPhone</button>
-      <button class="filter-btn" data-filter="ipad">iPad</button>
+      <span class="stat"><strong>${variants.length}</strong> variant${variants.length > 1 ? 's' : ''}</span>
+      <span class="stat"><strong>${results.length}</strong> images</span>
+      <span class="stat">Devices: <strong>${REPRESENTATIVE_DEVICES.length}</strong></span>
     </div>
   </header>
 
   <main class="container">
-    <section class="platform-section" data-platform="ios">
-      <h2><span class="platform-badge ios">iOS</span> iPhone & iPad</h2>
-      <div class="device-grid">
-        ${results.filter(r => r.device.platform === 'ios').map(r => `
-        <div class="device-card" data-platform="${r.device.platform}" data-type="${r.deviceKey.startsWith('ipad') ? 'ipad' : 'iphone'}" data-device="${r.deviceKey}">
-          <img src="output/${r.deviceKey}.png" alt="${r.device.name}" loading="lazy">
-          <div class="device-info">
-            <div class="device-name">${r.device.name} (${r.device.displaySize})</div>
-            <div class="device-meta">${r.device.width} × ${r.device.height} &middot; <code>${r.deviceKey}</code></div>
-          </div>
-        </div>
-        `).join('')}
-      </div>
-    </section>
-
-    <section class="platform-section" data-platform="android">
-      <h2><span class="platform-badge android">Android</span> Phone, Tablet & Wear</h2>
-      <div class="device-grid">
-        ${results.filter(r => r.device.platform === 'android').map(r => `
-        <div class="device-card" data-platform="${r.device.platform}" data-type="android" data-device="${r.deviceKey}">
-          <img src="output/${r.deviceKey}.png" alt="${r.device.name}" loading="lazy">
-          <div class="device-info">
-            <div class="device-name">${r.device.name} (${r.device.displaySize})</div>
-            <div class="device-meta">${r.device.width} × ${r.device.height} &middot; <code>${r.deviceKey}</code></div>
-          </div>
-        </div>
-        `).join('')}
-      </div>
-    </section>
+    ${variantSections}
   </main>
 
   <div class="modal" id="modal">
@@ -399,38 +504,7 @@ function generateGalleryHtml(template, results, outputDir) {
   </div>
 
   <script>
-    // Filter functionality
-    const filterBtns = document.querySelectorAll('.filter-btn');
     const cards = document.querySelectorAll('.device-card');
-    const sections = document.querySelectorAll('.platform-section');
-
-    filterBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        filterBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-
-        const filter = btn.dataset.filter;
-
-        cards.forEach(card => {
-          let show = false;
-          if (filter === 'all') show = true;
-          else if (filter === 'ios') show = card.dataset.platform === 'ios';
-          else if (filter === 'android') show = card.dataset.platform === 'android';
-          else if (filter === 'iphone') show = card.dataset.type === 'iphone';
-          else if (filter === 'ipad') show = card.dataset.type === 'ipad';
-
-          card.classList.toggle('hidden', !show);
-        });
-
-        // Hide empty sections
-        sections.forEach(section => {
-          const hasVisible = section.querySelectorAll('.device-card:not(.hidden)').length > 0;
-          section.style.display = hasVisible ? '' : 'none';
-        });
-      });
-    });
-
-    // Modal functionality
     const modal = document.getElementById('modal');
     const modalImg = modal.querySelector('img');
     const modalInfo = modal.querySelector('.modal-info');
@@ -440,11 +514,10 @@ function generateGalleryHtml(template, results, outputDir) {
       card.addEventListener('click', () => {
         const img = card.querySelector('img');
         const name = card.querySelector('.device-name').textContent;
-        const meta = card.querySelector('.device-meta');
-        const deviceKey = card.dataset.device;
+        const variant = card.dataset.variant;
 
         modalImg.src = img.src;
-        modalInfo.innerHTML = name + '<code>' + deviceKey + '</code>';
+        modalInfo.innerHTML = '<code>' + variant + '</code> ' + name;
         modal.classList.add('active');
       });
     });
@@ -498,7 +571,9 @@ export async function testTemplate(template, options) {
 
   const outputDir = resolve(options.output || './.storepix-test');
   const shouldOpen = options.open !== false;
-  const deviceKeys = options.device ? [options.device] : deviceList;
+
+  // Use representative devices unless specific device requested
+  const deviceKeys = options.device ? [options.device] : REPRESENTATIVE_DEVICES;
 
   // Validate device if specified
   if (options.device && !devices[options.device]) {
@@ -511,9 +586,13 @@ export async function testTemplate(template, options) {
     process.exit(1);
   }
 
+  // Load variants
+  const variants = await loadVariants(template);
+
   console.log(`\n  storepix test-template\n`);
   console.log(`  Template: ${template}`);
-  console.log(`  Devices: ${deviceKeys.length}`);
+  console.log(`  Variants: ${variants.length} (${variants.map(v => v.name).join(', ')})`);
+  console.log(`  Devices: ${deviceKeys.length} (${deviceKeys.join(', ')})`);
   console.log(`  Output: ${outputDir}\n`);
 
   // Clean and create output directory
@@ -545,50 +624,19 @@ export async function testTemplate(template, options) {
     await context.close();
     console.log(`  Generated ${deviceKeys.length} mock screenshots\n`);
 
-    // Phase 2: Start server and render template for each device
-    console.log('  Rendering template for each device...');
+    // Phase 2: Start server and render all variants
+    console.log('  Rendering variants...');
     const { server, port } = await startServer(packageTemplatesDir, mockDir, template);
     const baseUrl = `http://localhost:${port}`;
 
-    for (const deviceKey of deviceKeys) {
-      const device = getDevice(deviceKey);
-
-      const ctx = await browser.newContext({
-        viewport: { width: device.width, height: device.height },
-        deviceScaleFactor: 1
-      });
-      const pg = await ctx.newPage();
-
-      // Build URL with parameters
-      const params = new URLSearchParams({
-        screenshot: `/mock/${deviceKey}.png`,
-        headline: 'Feature Title',
-        subheadline: 'Description text goes here',
-        theme: 'light',
-        layout: 'top',
-        deviceWidth: device.width.toString(),
-        deviceHeight: device.height.toString(),
-        platform: device.platform,
-        notchType: device.frame?.notch?.type || 'none',
-        notchWidth: (device.frame?.notch?.width || 0).toString(),
-        notchHeight: (device.frame?.notch?.height || 0).toString(),
-        hasHomeButton: (device.frame?.homeButton || false).toString(),
-      });
-
-      await pg.goto(`${baseUrl}?${params.toString()}`, { waitUntil: 'networkidle' });
-      await pg.waitForTimeout(500);
-
-      const outputPath = join(renderDir, `${deviceKey}.png`);
-      await pg.screenshot({
-        path: outputPath,
-        type: 'png',
-        clip: { x: 0, y: 0, width: device.width, height: device.height }
-      });
-
-      await ctx.close();
-
-      results.push({ deviceKey, device });
-      process.stdout.write(`    ${deviceKey}\r`);
+    let totalRendered = 0;
+    for (const variant of variants) {
+      for (const deviceKey of deviceKeys) {
+        const variantResults = await renderVariant(browser, baseUrl, mockDir, renderDir, deviceKey, variant);
+        results.push(...variantResults);
+        totalRendered += variantResults.length;
+        process.stdout.write(`    ${variant.name}/${deviceKey} (${totalRendered} images)\r`);
+      }
     }
 
     server.close();
@@ -596,7 +644,7 @@ export async function testTemplate(template, options) {
 
     // Phase 3: Generate gallery HTML
     console.log('  Creating gallery...');
-    generateGalleryHtml(template, results, outputDir);
+    generateGalleryHtml(template, variants, results, outputDir);
     const galleryPath = join(outputDir, 'index.html');
     console.log(`  Gallery: ${galleryPath}\n`);
 
