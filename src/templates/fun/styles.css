@@ -235,11 +235,11 @@ body {
   top: calc(200px * var(--scale));
 }
 
-/* First headline: bottom-left of first screen */
+/* First headline: top-left of first screen */
 .screenshot-frame.panorama.slices-2 #headline-container-0 {
   left: calc(80px * var(--scale));
-  bottom: calc(200px * var(--scale));
-  top: auto;
+  top: calc(100px * var(--scale));
+  bottom: auto;
 }
 
 /* Second headline: bottom-right area of second screen */
