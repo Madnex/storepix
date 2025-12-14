@@ -11,10 +11,16 @@
 </head>
 <body>
   <div class="screenshot-frame" id="screenshot-frame">
-    <!-- Marketing headline -->
-    <div class="headline-container">
-      <h1 class="headline" id="headline">Your headline</h1>
-      <p class="subheadline" id="subheadline">here</p>
+    <!-- Headlines will be dynamically created for panorama mode -->
+    <div class="headline-container" id="headline-container-0">
+      <h1 class="headline" id="headline-0">Your headline</h1>
+      <p class="subheadline" id="subheadline-0">here</p>
+    </div>
+
+    <!-- Second headline for panorama mode (hidden by default) -->
+    <div class="headline-container headline-container-1" id="headline-container-1">
+      <h1 class="headline" id="headline-1">Second</h1>
+      <p class="subheadline" id="subheadline-1">headline</p>
     </div>
 
     <!-- Device mockup (rotated and positioned for continuity) -->
@@ -48,6 +54,8 @@
       notchWidth: parseInt(urlParams.get('notchWidth')) || 210,
       notchHeight: parseInt(urlParams.get('notchHeight')) || 62,
       hasHomeButton: urlParams.get('hasHomeButton') === 'true',
+      // Panorama/slicing support
+      slices: parseInt(urlParams.get('slices')) || 1,
       // Status bar configuration
       statusBar: urlParams.get('statusBar') === 'true',
       statusBarTime: urlParams.get('statusBarTime') || '9:41',
@@ -55,6 +63,19 @@
       statusBarShowPercent: urlParams.get('statusBarShowPercent') !== 'false',
       statusBarStyle: urlParams.get('statusBarStyle') || 'auto',
     };
+
+    // Parse headlines/subheadlines arrays for panorama mode
+    let headlines = [config.headline];
+    let subheadlines = [config.subheadline];
+
+    try {
+      const headlinesParam = urlParams.get('headlines');
+      const subheadlinesParam = urlParams.get('subheadlines');
+      if (headlinesParam) headlines = JSON.parse(headlinesParam);
+      if (subheadlinesParam) subheadlines = JSON.parse(subheadlinesParam);
+    } catch (e) {
+      console.warn('Failed to parse headlines/subheadlines:', e);
+    }
 
     // Parse theme JSON if provided
     try {
@@ -64,7 +85,6 @@
         const root = document.documentElement;
         if (theme.primary) root.style.setProperty('--primary', theme.primary);
         if (theme.font) root.style.setProperty('--font-family', theme.font);
-        // Home indicator customization
         if (theme.homeIndicatorLight) root.style.setProperty('--home-indicator-light', theme.homeIndicatorLight);
         if (theme.homeIndicatorDark) root.style.setProperty('--home-indicator-dark', theme.homeIndicatorDark);
         if (theme.homeIndicatorColor) root.style.setProperty('--home-indicator', theme.homeIndicatorColor);
@@ -75,22 +95,34 @@
 
     // Apply configuration
     document.getElementById('screenshot-img').src = config.screenshot;
-    document.getElementById('headline').textContent = config.headline;
-    document.getElementById('subheadline').textContent = config.subheadline;
+
+    // Set up headlines
+    document.getElementById('headline-0').textContent = headlines[0] || config.headline;
+    document.getElementById('subheadline-0').textContent = subheadlines[0] || config.subheadline;
 
     // Apply theme
     if (config.theme === 'dark') {
       document.body.classList.add('dark-theme');
     }
 
-    // Apply layout variant
-    // For fun template: 'top' = text at top, device from bottom
-    // Default = text at bottom, device from top
-    if (config.layout === 'top') {
-      document.getElementById('screenshot-frame').classList.add('layout-top');
-    } else if (config.layout === 'bottom') {
-      // Treat 'bottom' same as 'top' for this template (text at top, device from bottom)
-      document.getElementById('screenshot-frame').classList.add('layout-bottom');
+    // Panorama mode (slices > 1)
+    const isPanorama = config.slices > 1;
+    if (isPanorama) {
+      document.getElementById('screenshot-frame').classList.add('panorama');
+      document.getElementById('screenshot-frame').classList.add(`slices-${config.slices}`);
+
+      // Show second headline container
+      const headline1Container = document.getElementById('headline-container-1');
+      headline1Container.style.display = 'flex';
+      document.getElementById('headline-1').textContent = headlines[1] || headlines[0];
+      document.getElementById('subheadline-1').textContent = subheadlines[1] || subheadlines[0];
+    } else {
+      // Single mode - apply layout variant
+      if (config.layout === 'top') {
+        document.getElementById('screenshot-frame').classList.add('layout-top');
+      } else if (config.layout === 'bottom') {
+        document.getElementById('screenshot-frame').classList.add('layout-bottom');
+      }
     }
 
     // Device notch/home button handling
@@ -111,6 +143,7 @@
     // Set viewport size via CSS variables for dynamic scaling
     document.documentElement.style.setProperty('--viewport-width', config.deviceWidth + 'px');
     document.documentElement.style.setProperty('--viewport-height', config.deviceHeight + 'px');
+    document.documentElement.style.setProperty('--slices', config.slices);
 
     // Scale factor based on base design (1284x2778)
     const baseWidth = 1284;
@@ -126,34 +159,27 @@
       const container = document.getElementById('status-bar-container');
       if (!container) return;
 
-      // Load status bar HTML based on platform
       const statusBarFile = config.platform === 'android' ? 'android.html' : 'ios.html';
 
       try {
-        // Load status bar HTML
         const response = await fetch(`/status-bar/${statusBarFile}`);
         if (!response.ok) throw new Error('Status bar not found');
         const html = await response.text();
         container.innerHTML = html;
 
-        // Load status bar CSS
         const link = document.createElement('link');
         link.rel = 'stylesheet';
         link.href = '/status-bar/styles.css';
         document.head.appendChild(link);
 
-        // Configure status bar
         const statusBar = document.getElementById('status-bar');
         if (!statusBar) return;
 
-        // Show the status bar
         statusBar.classList.add('visible');
 
-        // Set time
         const timeEl = document.getElementById('status-time');
         if (timeEl) timeEl.textContent = config.statusBarTime;
 
-        // Set battery level
         const batteryFill = document.getElementById('battery-fill');
         if (batteryFill) {
           const batteryPercent = Math.max(0, Math.min(100, config.statusBarBattery));
@@ -167,7 +193,6 @@
           }
         }
 
-        // Show/hide battery percentage
         const percentEl = document.getElementById('battery-percent');
         if (percentEl) {
           if (config.statusBarShowPercent) {
@@ -177,12 +202,10 @@
           }
         }
 
-        // Low battery indicator
         if (config.statusBarBattery <= 20) {
           statusBar.classList.add('battery-low');
         }
 
-        // Apply notch type class for positioning
         if (config.platform === 'ios') {
           if (config.notchType === 'dynamic-island') {
             statusBar.classList.add('has-dynamic-island');
@@ -197,7 +220,6 @@
           }
         }
 
-        // Apply dark/light style
         let useDarkStyle = false;
         if (config.statusBarStyle === 'dark') {
           useDarkStyle = true;

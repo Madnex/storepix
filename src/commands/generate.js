@@ -210,19 +210,27 @@ export async function generate(options) {
           // Get localized text if available
           let headline = screenshot.headline;
           let subheadline = screenshot.subheadline;
+          let headlines = screenshot.headlines;
+          let subheadlines = screenshot.subheadlines;
 
           if (locale && config.locales?.[locale]?.[screenshot.id]) {
             const localized = config.locales[locale][screenshot.id];
             headline = localized.headline || headline;
             subheadline = localized.subheadline || subheadline;
+            headlines = localized.headlines || headlines;
+            subheadlines = localized.subheadlines || subheadlines;
           }
+
+          // Determine number of slices (for panorama mode)
+          const slices = screenshot.slices || 1;
+          const isPanorama = slices > 1;
 
           // Build URL parameters
           // Use relative path for screenshot so it's served via HTTP
           const params = new URLSearchParams({
             screenshot: screenshot.source,
-            headline,
-            subheadline,
+            headline: headline || '',
+            subheadline: subheadline || '',
             theme: screenshot.theme || 'light',
             layout: screenshot.layout || 'top',
             // Pass device info for CSS scaling
@@ -234,6 +242,8 @@ export async function generate(options) {
             notchWidth: (device.frame?.notch?.width || 0).toString(),
             notchHeight: (device.frame?.notch?.height || 0).toString(),
             hasHomeButton: (device.frame?.homeButton || false).toString(),
+            // Panorama/slicing
+            slices: slices.toString(),
             // Status bar configuration
             statusBar: (config.statusBar?.enabled ?? false).toString(),
             statusBarTime: config.statusBar?.time || '9:41',
@@ -244,7 +254,23 @@ export async function generate(options) {
             ...(config.theme && { themeJson: JSON.stringify(config.theme) })
           });
 
+          // Add headlines/subheadlines arrays for panorama mode
+          if (isPanorama && headlines) {
+            params.set('headlines', JSON.stringify(headlines));
+          }
+          if (isPanorama && subheadlines) {
+            params.set('subheadlines', JSON.stringify(subheadlines));
+          }
+
           const url = `${baseUrl}?${params.toString()}`;
+
+          // For panorama, we need a wider viewport
+          if (isPanorama) {
+            await page.setViewportSize({
+              width: device.width * slices,
+              height: device.height
+            });
+          }
 
           await page.goto(url, { waitUntil: 'networkidle' });
 
@@ -287,17 +313,46 @@ export async function generate(options) {
           // Small delay for any animations/rendering
           await page.waitForTimeout(300);
 
-          // Take screenshot
-          const outputPath = join(outputBaseDir, `${screenshot.id}.png`);
-          await page.screenshot({
-            path: outputPath,
-            type: 'png',
-            clip: { x: 0, y: 0, width: device.width, height: device.height }
-          });
+          if (isPanorama) {
+            // Capture full panorama and slice it
+            for (let i = 0; i < slices; i++) {
+              const sliceId = `${screenshot.id}-${i + 1}`;
+              const outputPath = join(outputBaseDir, `${sliceId}.png`);
 
-          const stats = statSync(outputPath);
-          console.log(`      ${screenshot.id}.png (${(stats.size / 1024).toFixed(0)} KB)`);
-          totalGenerated++;
+              await page.screenshot({
+                path: outputPath,
+                type: 'png',
+                clip: {
+                  x: i * device.width,
+                  y: 0,
+                  width: device.width,
+                  height: device.height
+                }
+              });
+
+              const stats = statSync(outputPath);
+              console.log(`      ${sliceId}.png (${(stats.size / 1024).toFixed(0)} KB)`);
+              totalGenerated++;
+            }
+
+            // Reset viewport to normal size for next screenshot
+            await page.setViewportSize({
+              width: device.width,
+              height: device.height
+            });
+          } else {
+            // Normal single screenshot
+            const outputPath = join(outputBaseDir, `${screenshot.id}.png`);
+            await page.screenshot({
+              path: outputPath,
+              type: 'png',
+              clip: { x: 0, y: 0, width: device.width, height: device.height }
+            });
+
+            const stats = statSync(outputPath);
+            console.log(`      ${screenshot.id}.png (${(stats.size / 1024).toFixed(0)} KB)`);
+            totalGenerated++;
+          }
         }
       }
 

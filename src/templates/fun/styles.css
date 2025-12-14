@@ -35,6 +35,7 @@
   --viewport-width: 1284px;
   --viewport-height: 2778px;
   --scale: 1;
+  --slices: 1;
 }
 
 * {
@@ -96,6 +97,11 @@ body {
   align-items: flex-start;
   gap: calc(8px * var(--scale));
   max-width: calc(600px * var(--scale));
+}
+
+/* Second headline container - hidden by default */
+.headline-container-1 {
+  display: none;
 }
 
 .headline {
@@ -209,4 +215,39 @@ body {
   top: auto;
   bottom: calc(-300px * var(--scale));
   right: calc(-250px * var(--scale));
+}
+
+/* ============================================
+   PANORAMA MODE - For slicing into multiple screenshots
+   ============================================ */
+.screenshot-frame.panorama {
+  /* Expand width to fit all slices */
+  width: calc(var(--viewport-width) * var(--slices));
+}
+
+/* 2-slice panorama: device spans the center seam */
+.screenshot-frame.panorama.slices-2 .device-container {
+  /* Position device so it's centered at the seam between screenshots */
+  /* The seam is at x = viewport-width */
+  /* Device frame is ~972px wide, so center it on the seam */
+  right: auto;
+  left: calc(var(--viewport-width) - 486px * var(--scale));
+  top: calc(200px * var(--scale));
+}
+
+/* First headline: top-left of first screen */
+.screenshot-frame.panorama.slices-2 #headline-container-0 {
+  left: calc(80px * var(--scale));
+  top: calc(100px * var(--scale));
+  bottom: auto;
+}
+
+/* Second headline: bottom-left of second screen */
+.screenshot-frame.panorama.slices-2 #headline-container-1 {
+  display: flex !important;
+  flex-direction: column;
+  align-items: flex-start;
+  left: calc(var(--viewport-width) + 80px * var(--scale));
+  bottom: calc(200px * var(--scale));
+  top: auto;
 }

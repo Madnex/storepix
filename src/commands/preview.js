@@ -54,26 +54,35 @@ const RELOAD_SCRIPT = `
  * Open browser window at device size using Playwright
  * @param {string} url - URL to open
  * @param {Object} device - Device definition with width/height
+ * @param {number} slices - Number of slices for panorama mode (default 1)
  */
-async function openBrowserWindow(url, device) {
+async function openBrowserWindow(url, device, slices = 1) {
   try {
     const { chromium } = await import('playwright');
 
+    // For panorama mode, width is multiplied by slices
+    const viewportWidth = device.width * slices;
+    const viewportHeight = device.height;
+
     // Calculate a reasonable scale factor to fit on screen
     // Most screens are 1440-2560 wide, so we scale down large devices
-    const maxWidth = 1400;
+    const maxWidth = 1600;
     const maxHeight = 900;
     const scale = Math.min(
-      maxWidth / device.width,
-      maxHeight / device.height,
+      maxWidth / viewportWidth,
+      maxHeight / viewportHeight,
       0.5 // Max 50% scale for readability
     );
 
     // Window size on screen (scaled down to fit)
-    const windowWidth = Math.round(device.width * scale);
-    const windowHeight = Math.round(device.height * scale);
+    const windowWidth = Math.round(viewportWidth * scale);
+    const windowHeight = Math.round(viewportHeight * scale);
 
-    console.log(`  Opening browser at ${windowWidth}x${windowHeight} (${Math.round(scale * 100)}% of ${device.width}x${device.height})`);
+    const sizeInfo = slices > 1
+      ? `${windowWidth}x${windowHeight} (${Math.round(scale * 100)}% of ${viewportWidth}x${viewportHeight}, ${slices} slices)`
+      : `${windowWidth}x${windowHeight} (${Math.round(scale * 100)}% of ${device.width}x${device.height})`;
+
+    console.log(`  Opening browser at ${sizeInfo}`);
 
     const browser = await chromium.launch({
       headless: false,
@@ -85,7 +94,7 @@ async function openBrowserWindow(url, device) {
     // Use full device resolution for viewport, but scale display via deviceScaleFactor
     // This makes the template render at correct dimensions while fitting on screen
     const context = await browser.newContext({
-      viewport: { width: device.width, height: device.height },
+      viewport: { width: viewportWidth, height: viewportHeight },
       deviceScaleFactor: scale, // Scale down the rendering
     });
 
@@ -293,15 +302,29 @@ export async function preview(options) {
 
     // Build URL with first screenshot and device params
     let previewUrl = `http://localhost:${port}`;
+    let previewSlices = 1;
     if (config.screenshots && config.screenshots.length > 0) {
       const s = config.screenshots[0];
+      previewSlices = s.slices || 1;
+
       const params = new URLSearchParams({
         screenshot: s.source,
         headline: s.headline || '',
         subheadline: s.subheadline || '',
         theme: s.theme || 'light',
-        layout: s.layout || 'top'
+        layout: s.layout || 'top',
+        slices: previewSlices.toString()
       });
+
+      // Add headlines/subheadlines arrays for panorama mode
+      if (previewSlices > 1) {
+        if (s.headlines) {
+          params.set('headlines', JSON.stringify(s.headlines));
+        }
+        if (s.subheadlines) {
+          params.set('subheadlines', JSON.stringify(s.subheadlines));
+        }
+      }
 
       // Add device parameters if opening browser
       if (shouldOpen && selectedDevice) {
@@ -328,13 +351,14 @@ export async function preview(options) {
       }
 
       previewUrl = `http://localhost:${port}?${params.toString()}`;
-      console.log(`  Preview first screenshot:`);
+      const panoramaInfo = previewSlices > 1 ? ` (${previewSlices}-slice panorama)` : '';
+      console.log(`  Preview first screenshot${panoramaInfo}:`);
       console.log(`  ${previewUrl}\n`);
     }
 
     // Open browser window if requested
     if (shouldOpen && selectedDevice) {
-      closeBrowser = await openBrowserWindow(previewUrl, selectedDevice, watchMode);
+      closeBrowser = await openBrowserWindow(previewUrl, selectedDevice, previewSlices);
     }
 
     console.log('  Press Ctrl+C to stop\n');
