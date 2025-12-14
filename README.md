@@ -1,5 +1,9 @@
 # storepix
 
+[![npm version](https://img.shields.io/npm/v/storepix.svg)](https://www.npmjs.com/package/storepix)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/Madnex/storepix/actions/workflows/ci.yml/badge.svg)](https://github.com/Madnex/storepix/actions/workflows/ci.yml)
+
 Generate beautiful App Store and Play Store screenshots with HTML/CSS templates.
 
 ## Features

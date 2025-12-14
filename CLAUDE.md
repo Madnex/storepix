@@ -109,4 +109,5 @@ node src/cli.js preview --config ./tmp/test/storepix.config.js
 ```bash
 npm version patch|minor|major
 npm publish
+git push --follow-tags
 ```

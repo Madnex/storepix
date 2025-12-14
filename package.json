@@ -10,8 +10,14 @@
   "exports": {
     ".": "./src/index.js"
   },
+  "files": [
+    "src/",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
-    "test": "node --test"
+    "test": "node --test tests/**/*.test.js",
+    "prepublishOnly": "npm test && node src/cli.js --help > /dev/null"
   },
   "keywords": [
     "app-store",
@@ -35,8 +41,8 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "chokidar": "^4.0.0",
-    "commander": "^12.1.0",
+    "chokidar": "^5.0.0",
+    "commander": "^14.0.2",
     "playwright": "^1.49.0",
     "serve-handler": "^6.1.6"
   }
