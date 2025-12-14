@@ -96,7 +96,7 @@ npx storepix upgrade --dry-run         # Preview changes without applying
 
 # Testing
 npx storepix test-template default     # Test template across all devices
-npx storepix test-template fun --device iphone-6.5  # Test specific device
+npx storepix test-template panorama --device iphone-6.5  # Test specific device
 ```
 
 ## Device Sizes
@@ -151,8 +151,8 @@ Background image support with device mockup. For lifestyle or contextual shots.
 ### `split`
 Side-by-side text and device layout. Works well for iPad and landscape.
 
-### `fun`
-Rotated device at an angle with panorama support. Eye-catching and playful.
+### `panorama`
+Rotated device at an angle with multi-slice panorama support. Eye-catching and playful.
 
 Add templates to your project:
 

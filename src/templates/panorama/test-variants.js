@@ -1,5 +1,5 @@
 /**
- * Test configuration for the fun template
+ * Test configuration for the panorama template
  * Tests single mode and panorama (slices: 2)
  */
 export default {

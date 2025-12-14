@@ -1,4 +1,4 @@
-# Fun Template
+# Panorama Template
 
 Playful rotated device layout with support for panoramic screenshots that span multiple App Store images.
 
