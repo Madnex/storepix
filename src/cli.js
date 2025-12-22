@@ -7,6 +7,7 @@ import { preview } from './commands/preview.js';
 import { upgrade } from './commands/upgrade.js';
 import { addTemplate } from './commands/add-template.js';
 import { testTemplate } from './commands/test-template.js';
+import { types } from './commands/types.js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -73,5 +74,11 @@ program
   .option('--no-open', 'Do not open browser after generation')
   .option('-d, --device <device>', 'Test only specific device')
   .action(testTemplate);
+
+program
+  .command('types')
+  .description('Generate TypeScript definitions for config file')
+  .option('-d, --dir <path>', 'Project directory', './storepix')
+  .action(types);
 
 program.parse();

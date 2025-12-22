@@ -7,6 +7,7 @@ import handler from 'serve-handler';
 import { devices, getDevice } from '../devices/index.js';
 import { validateAllScreenshots, printValidationResults } from '../utils/validation.js';
 import { templateExistsInProject, tryAddTemplate, getAvailableTemplates } from '../utils/template-helper.js';
+import { validateConfig, printConfigValidation } from '../utils/config-validation.js';
 
 /**
  * Start a local HTTP server to serve template files
@@ -170,6 +171,14 @@ export async function generate(options) {
     if (!hasWarnings) {
       console.log('  All screenshots validated.\n');
     }
+
+    // Validate config against template schema
+    const configValidation = validateConfig(config, configDir);
+    printConfigValidation(configValidation, template);
+
+    if (!configValidation.valid) {
+      process.exit(1);
+    }
   }
 
   // Start local HTTP server (needed for fetch() to work in templates)
@@ -226,7 +235,8 @@ export async function generate(options) {
           // Collect custom content (any keys not reserved by storepix)
           const reservedKeys = new Set([
             'id', 'source', 'theme', 'layout', 'slices',
-            'headline', 'subheadline', 'headlines', 'subheadlines'
+            'headline', 'subheadline', 'headlines', 'subheadlines',
+            'background'
           ]);
           const customContent = {};
           for (const [key, value] of Object.entries(screenshot)) {
@@ -252,6 +262,7 @@ export async function generate(options) {
           // Use relative path for screenshot so it's served via HTTP
           const params = new URLSearchParams({
             screenshot: screenshot.source,
+            background: screenshot.background || '',
             headline: headline || '',
             subheadline: subheadline || '',
             theme: screenshot.theme || 'light',
