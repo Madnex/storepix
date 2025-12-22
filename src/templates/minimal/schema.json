@@ -1,0 +1,46 @@
+{
+  "$schema": "https://storepix.dev/schema/template-schema.json",
+  "name": "minimal",
+  "description": "Clean solid-color background without decorative elements",
+  "version": "1.0.0",
+
+  "fields": {
+    "headline": {
+      "type": "string",
+      "required": false,
+      "default": "Your headline",
+      "description": "Main marketing text displayed above or below the device"
+    },
+    "subheadline": {
+      "type": "string",
+      "required": false,
+      "default": "here",
+      "description": "Secondary text below the headline"
+    },
+    "theme": {
+      "type": "enum",
+      "values": ["light", "dark"],
+      "default": "light",
+      "description": "Color theme for background and text"
+    },
+    "layout": {
+      "type": "enum",
+      "values": ["top", "bottom"],
+      "default": "top",
+      "description": "Position of headline relative to device (top = headline above device)"
+    }
+  },
+
+  "themeFields": {
+    "background": {
+      "type": "color",
+      "description": "Override background color via theme.background in config"
+    }
+  },
+
+  "supports": {
+    "statusBar": true,
+    "customContent": true,
+    "locales": true
+  }
+}

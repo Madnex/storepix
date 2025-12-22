@@ -7,6 +7,23 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const templatesDir = join(__dirname, '..', 'templates');
 
+/**
+ * Load template schema from package templates
+ * @param {string} templateName
+ * @returns {Object|null}
+ */
+function loadPackageSchema(templateName) {
+  const schemaPath = join(templatesDir, templateName, 'schema.json');
+  if (existsSync(schemaPath)) {
+    try {
+      return JSON.parse(readFileSync(schemaPath, 'utf-8'));
+    } catch (e) {
+      return null;
+    }
+  }
+  return null;
+}
+
 export async function init(options) {
   const targetDir = options.dir;
   const templateName = options.template;
@@ -48,8 +65,9 @@ export async function init(options) {
     cpSync(statusBarSource, statusBarTarget, { recursive: true });
   }
 
-  // Create config file
-  const configContent = generateConfig(templateName);
+  // Create config file (template-specific if schema available)
+  const schema = loadPackageSchema(templateName);
+  const configContent = generateConfigFromSchema(templateName, schema);
   writeFileSync(join(targetDir, 'storepix.config.js'), configContent);
 
   // Create .gitignore
@@ -92,9 +110,19 @@ node_modules/
   console.log('    npx storepix preview\n');
 }
 
-function generateConfig(templateName) {
+/**
+ * Generate config content based on template schema
+ * @param {string} templateName
+ * @param {Object|null} schema
+ * @returns {string}
+ */
+function generateConfigFromSchema(templateName, schema) {
+  // Get template-specific screenshot example
+  const screenshotExample = getTemplateScreenshotExample(templateName, schema);
+
   return `// storepix configuration
 // Documentation: https://github.com/Madnex/storepix
+${schema ? `// Template: ${templateName} - ${schema.description || ''}` : ''}
 
 export default {
   // Template to use (from ./templates/)
@@ -145,15 +173,7 @@ export default {
 
   // Your screenshots
   screenshots: [
-    {
-      id: '01_home',
-      source: './screenshots/home.png',
-      headline: 'Your headline',
-      subheadline: 'here',
-      theme: 'light',
-      layout: 'top',
-    },
-    // Add more screenshots...
+${screenshotExample}
   ],
 
   // Optional: Localization
@@ -168,6 +188,62 @@ export default {
   // },
 };
 `;
+}
+
+/**
+ * Generate template-specific screenshot example based on schema
+ * @param {string} templateName
+ * @param {Object|null} schema
+ * @returns {string}
+ */
+function getTemplateScreenshotExample(templateName, schema) {
+  // Base example that works for all templates
+  const baseExample = `    {
+      id: '01_home',
+      source: './screenshots/home.png',
+      headline: 'Your headline',
+      subheadline: 'here',
+      theme: 'light',
+      layout: 'top',`;
+
+  // Template-specific additions
+  switch (templateName) {
+    case 'photo':
+      return `${baseExample}
+      // Photo template: add a background image
+      // background: './backgrounds/lifestyle.jpg',
+    },
+    // Add more screenshots...`;
+
+    case 'panorama':
+      return `    // Single screenshot mode (rotated device)
+    {
+      id: '01_feature',
+      source: './screenshots/feature.png',
+      headline: 'Amazing Feature',
+      subheadline: 'Try it today',
+      theme: 'light',
+      layout: 'top',
+    },
+
+    // Panorama mode example (uncomment to use)
+    // Creates multiple connected images (e.g., 02_hero-1.png, 02_hero-2.png)
+    // {
+    //   id: '02_hero',
+    //   source: './screenshots/hero.png',
+    //   slices: 2,
+    //   headlines: ['First Panel', 'Second Panel'],
+    //   subheadlines: ['Description 1', 'Description 2'],
+    //   theme: 'light',
+    // },
+
+    // Add more screenshots...`;
+
+    default:
+      return `${baseExample}
+    },
+    // Add more screenshots...`;
+  }
 }
 
 /**

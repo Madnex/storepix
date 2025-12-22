@@ -361,6 +361,13 @@ export async function upgrade(options) {
     }
   }
 
+  // Migrate schema.json if not present (for projects created before schema support)
+  const schemaAdded = migrateSchema(targetDir, versionInfo.template);
+  if (schemaAdded) {
+    console.log('  Added: schema.json (new config validation support)');
+    appliedCount++;
+  }
+
   // Update version file
   updateVersionFile(targetDir, versionInfo.template);
 
@@ -373,6 +380,26 @@ export async function upgrade(options) {
   } else {
     console.log();
   }
+}
+
+/**
+ * Migrate schema.json to user's template directory if it doesn't exist
+ * @param {string} targetDir - Project directory
+ * @param {string} templateName - Template name
+ * @returns {boolean} True if schema was added
+ */
+function migrateSchema(targetDir, templateName) {
+  const userSchemaPath = join(targetDir, 'templates', templateName, 'schema.json');
+  const packageSchemaPath = join(packageTemplatesDir, templateName, 'schema.json');
+
+  // If user already has schema or package doesn't have one, skip
+  if (existsSync(userSchemaPath) || !existsSync(packageSchemaPath)) {
+    return false;
+  }
+
+  // Copy schema from package to user's template
+  cpSync(packageSchemaPath, userSchemaPath);
+  return true;
 }
 
 /**

@@ -7,6 +7,7 @@ import handler from 'serve-handler';
 import { devices, getDevice } from '../devices/index.js';
 import { validateAllScreenshots, printValidationResults } from '../utils/validation.js';
 import { templateExistsInProject, tryAddTemplate, getAvailableTemplates } from '../utils/template-helper.js';
+import { validateConfig, printConfigValidation } from '../utils/config-validation.js';
 
 /**
  * Start a local HTTP server to serve template files
@@ -169,6 +170,14 @@ export async function generate(options) {
 
     if (!hasWarnings) {
       console.log('  All screenshots validated.\n');
+    }
+
+    // Validate config against template schema
+    const configValidation = validateConfig(config, configDir);
+    printConfigValidation(configValidation, template);
+
+    if (!configValidation.valid) {
+      process.exit(1);
     }
   }
 

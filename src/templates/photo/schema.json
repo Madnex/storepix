@@ -1,0 +1,46 @@
+{
+  "$schema": "https://storepix.dev/schema/template-schema.json",
+  "name": "photo",
+  "description": "Full-bleed background image with device frame overlay",
+  "version": "1.0.0",
+
+  "fields": {
+    "headline": {
+      "type": "string",
+      "required": false,
+      "default": "Your headline",
+      "description": "Main marketing text displayed above or below the device"
+    },
+    "subheadline": {
+      "type": "string",
+      "required": false,
+      "default": "here",
+      "description": "Secondary text below the headline"
+    },
+    "theme": {
+      "type": "enum",
+      "values": ["light", "dark"],
+      "default": "light",
+      "description": "Color theme for text styling"
+    },
+    "layout": {
+      "type": "enum",
+      "values": ["top", "bottom"],
+      "default": "top",
+      "description": "Position of headline relative to device (top = headline above device)"
+    },
+    "background": {
+      "type": "path",
+      "required": false,
+      "default": "",
+      "description": "Background image path (relative to config directory). The image will fill the entire screenshot area.",
+      "templateSpecific": true
+    }
+  },
+
+  "supports": {
+    "statusBar": true,
+    "customContent": true,
+    "locales": true
+  }
+}
