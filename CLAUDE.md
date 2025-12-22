@@ -120,28 +120,27 @@ git push
 
 ## Releasing
 
-Releases are synced between GitHub and npm via git tags.
+Releases are automated via GitHub Actions using npm trusted publishing (OIDC).
 
-**1. Create release PR:**
+**1. Merge changes to main:**
 ```bash
 gh pr create --base main --head development --title "Release vX.Y.Z"
+# Review and merge the PR
 ```
 
-**2. After PR merged, release:**
-```bash
-git checkout main
-git pull
-npm version patch|minor|major   # Updates package.json + creates git tag
-npm publish                      # Publishes to npm
-git push --follow-tags           # Pushes commit + tag to GitHub
-```
+**2. Run the release workflow:**
 
-**3. Create GitHub release (optional but recommended):**
-```bash
-gh release create v0.1.0 --generate-notes
-```
+1. Go to **Actions** tab on GitHub
+2. Click **Release** workflow
+3. Click **Run workflow**
+4. Select version bump type: `patch`, `minor`, or `major`
+5. Click **Run workflow**
 
-This keeps versions aligned:
-- `npm version` creates tag `v0.1.0`
-- `npm publish` publishes version `0.1.0` to npm
-- `gh release create v0.1.0` creates GitHub release from same tag
+The workflow automatically:
+
+- Runs tests
+- Bumps version in package.json
+- Commits and tags
+- Publishes to npm (via OIDC, no token needed)
+- Pushes changes back to main
+- Creates a GitHub Release with auto-generated notes
