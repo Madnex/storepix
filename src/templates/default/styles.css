@@ -240,3 +240,43 @@ body {
 .screenshot-frame.headline-below .device-container {
   order: 1;
 }
+
+/* ============================================
+   Tablet/iPad Specific Styles
+   ============================================ */
+.tablet-device .screenshot-frame {
+  padding: calc(100px * var(--scale)) calc(80px * var(--scale));
+}
+
+.tablet-device .headline-container {
+  flex: 0 0 auto;
+  padding-bottom: calc(60px * var(--scale));
+}
+
+.tablet-device .device-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tablet-device .device-frame {
+  border-radius: var(--tablet-frame-radius, calc(60px * var(--scale)));
+  padding: var(--tablet-frame-padding, calc(40px * var(--scale)));
+}
+
+.tablet-device .device-screen {
+  width: var(--tablet-screen-width, calc(1400px * var(--scale)));
+  height: var(--tablet-screen-height, calc(1866px * var(--scale)));
+  border-radius: var(--tablet-screen-radius, calc(40px * var(--scale)));
+}
+
+.tablet-device .device-notch {
+  display: none; /* iPads don't have notches */
+}
+
+/* Tablet headline below layout */
+.tablet-device .screenshot-frame.headline-below .headline-container {
+  padding-bottom: 0;
+  padding-top: calc(60px * var(--scale));
+}

@@ -118,6 +118,30 @@
     const scale = config.deviceWidth / baseWidth;
     document.documentElement.style.setProperty('--scale', scale);
 
+    // Detect tablet/iPad based on aspect ratio (iPads are ~0.75, iPhones are ~0.46)
+    const aspectRatio = config.deviceWidth / config.deviceHeight;
+    const isTablet = aspectRatio > 0.65;
+
+    if (isTablet) {
+      document.body.classList.add('tablet-device');
+
+      // Calculate device screen dimensions for tablet
+      // Leave 28% of viewport height for headline area
+      const headlineSpace = 0.28;
+      const devicePadding = 40; // frame padding for tablets
+      const availableHeight = config.deviceHeight * (1 - headlineSpace);
+
+      // Device screen height (subtracting frame padding)
+      const screenHeight = availableHeight - (devicePadding * 2) - 60; // extra margin
+      const screenWidth = screenHeight * aspectRatio;
+
+      document.documentElement.style.setProperty('--tablet-screen-width', screenWidth + 'px');
+      document.documentElement.style.setProperty('--tablet-screen-height', screenHeight + 'px');
+      document.documentElement.style.setProperty('--tablet-frame-radius', '60px');
+      document.documentElement.style.setProperty('--tablet-screen-radius', '40px');
+      document.documentElement.style.setProperty('--tablet-frame-padding', devicePadding + 'px');
+    }
+
     // Apply custom content from data-storepix attributes
     applyCustomContent(urlParams);
 
