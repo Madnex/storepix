@@ -85,7 +85,7 @@ npx storepix init --template minimal   # Use different template
 npx storepix generate                  # Generate all screenshots
 npx storepix generate --device iphone-6.9  # Single device
 npx storepix generate --locale de      # Single locale
-npx storepix generate --skip-validation    # Skip dimension validation
+npx storepix generate --skip-validation    # Skip all validation
 
 # Preview
 npx storepix preview                   # Start preview server
@@ -94,9 +94,12 @@ npx storepix preview --open            # Open browser at device size
 npx storepix preview --device ipad-13  # Preview specific device
 
 # Templates
-npx storepix add-template split        # Add a template to your project
+npx storepix add-template photo        # Add a template to your project
 npx storepix upgrade                   # Upgrade templates to latest version
 npx storepix upgrade --dry-run         # Preview changes without applying
+
+# TypeScript
+npx storepix types                     # Generate TypeScript definitions
 
 # Testing
 npx storepix test-template default     # Test template across all devices
@@ -140,11 +143,21 @@ App Store requires `ipad-13` for iPad apps.
 
 ## Templates
 
+Each template supports different configuration options. The `init` command generates template-specific config examples.
+
 ### `default`
 Gradient background with device mockup and decorative blur elements. Great for marketing screenshots.
 
+```javascript
+{ headline: 'Title', subheadline: 'Description', theme: 'light', layout: 'top' }
+```
+
 ### `minimal`
 Solid color background with device mockup. Clean and professional.
+
+```javascript
+{ headline: 'Title', subheadline: 'Description', theme: 'light', layout: 'top' }
+```
 
 ### `plain`
 Screenshot only, no device frame. Useful for Play Store or custom framing.
@@ -152,16 +165,66 @@ Screenshot only, no device frame. Useful for Play Store or custom framing.
 ### `photo`
 Background image support with device mockup. For lifestyle or contextual shots.
 
-### `split`
-Side-by-side text and device layout. Works well for iPad and landscape.
+```javascript
+{
+  headline: 'Title',
+  subheadline: 'Description',
+  background: './backgrounds/lifestyle.jpg',  // Photo template only
+}
+```
 
 ### `panorama`
 Rotated device at an angle with multi-slice panorama support. Eye-catching and playful.
+
+```javascript
+// Single mode
+{ headline: 'Title', subheadline: 'Description', theme: 'light' }
+
+// Panorama mode (generates multiple connected images)
+{
+  slices: 2,
+  headlines: ['First', 'Second'],       // Array for panorama mode
+  subheadlines: ['Desc 1', 'Desc 2'],   // Array for panorama mode
+}
+```
 
 Add templates to your project:
 
 ```bash
 npx storepix add-template photo
+```
+
+## Config Validation
+
+storepix validates your config against template schemas during generation:
+
+```text
+Config validation:
+  ⚠ [01_home] Field "background" is only used by photo template, not "default"
+  ✗ [02_hero] Panorama mode (slices > 1) requires "headlines" array
+```
+
+- **Errors** (✗) block generation until fixed
+- **Warnings** (⚠) allow generation but notify you of potential issues
+
+Use `--skip-validation` to bypass all validation.
+
+## TypeScript Support
+
+Generate TypeScript definitions for IDE autocomplete:
+
+```bash
+npx storepix types
+```
+
+This creates `storepix.d.ts` in your project. Add to your config file:
+
+```javascript
+// @ts-check
+/** @type {import('./storepix.d.ts').StorepixConfig} */
+export default {
+  // IDE autocomplete works here!
+};
 ```
 
 ## Customization
