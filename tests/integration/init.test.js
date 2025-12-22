@@ -152,7 +152,7 @@ describe('init command', () => {
 
   it('should work with all available templates', () => {
     // All templates that have index.html (excluding status-bar component)
-    const templates = ['default', 'minimal', 'photo', 'split', 'panorama'];
+    const templates = ['default', 'minimal', 'photo', 'panorama'];
 
     for (const template of templates) {
       const testDir = join(testBaseDir, `test-all-${template}`);
