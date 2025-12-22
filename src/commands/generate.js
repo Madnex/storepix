@@ -8,6 +8,7 @@ import { devices, getDevice } from '../devices/index.js';
 import { validateAllScreenshots, printValidationResults } from '../utils/validation.js';
 import { templateExistsInProject, tryAddTemplate, getAvailableTemplates } from '../utils/template-helper.js';
 import { validateConfig, printConfigValidation } from '../utils/config-validation.js';
+import { resolveSource, getDeviceType, buildDeviceSpecificPath } from '../utils/resolve-source.js';
 
 /**
  * Start a local HTTP server to serve template files
@@ -84,33 +85,55 @@ export async function generate(options) {
     process.exit(1);
   }
 
-  // Validate screenshot source files exist
+  // Determine devices early (needed for source validation)
+  const deviceKeys = options.device
+    ? [options.device]
+    : (config.devices || ['iphone-6.5']);
+
+  // Validate screenshot source files exist (checking device-specific paths)
   const missingScreenshots = [];
   for (const screenshot of config.screenshots) {
     if (!screenshot.source) {
       console.log(`  Error: Screenshot "${screenshot.id}" is missing a "source" path\n`);
       process.exit(1);
     }
-    const sourcePath = join(configDir, screenshot.source);
-    if (!existsSync(sourcePath)) {
-      missingScreenshots.push({ id: screenshot.id, path: sourcePath, source: screenshot.source });
+
+    // Check each device has a valid source (device-specific or base)
+    for (const deviceKey of deviceKeys) {
+      const { resolvedPath } = resolveSource(screenshot.source, deviceKey, configDir);
+      const absolutePath = join(configDir, resolvedPath);
+
+      if (!existsSync(absolutePath)) {
+        const deviceType = getDeviceType(deviceKey);
+        const deviceSpecificPath = deviceType
+          ? buildDeviceSpecificPath(screenshot.source, deviceType)
+          : screenshot.source;
+
+        missingScreenshots.push({
+          id: screenshot.id,
+          device: deviceKey,
+          deviceType,
+          expectedPaths: [
+            deviceSpecificPath,
+            screenshot.source
+          ]
+        });
+      }
     }
   }
 
   if (missingScreenshots.length > 0) {
     console.log(`  Error: Screenshot source files not found\n`);
     for (const missing of missingScreenshots) {
-      console.log(`    - ${missing.id}: ${missing.source}`);
-      console.log(`      Expected at: ${missing.path}`);
+      console.log(`    - ${missing.id} (${missing.device}):`);
+      console.log(`      Expected: ${missing.expectedPaths[0]}`);
+      if (missing.expectedPaths[0] !== missing.expectedPaths[1]) {
+        console.log(`            or: ${missing.expectedPaths[1]}`);
+      }
     }
-    console.log(`\n  Tip: Add your app screenshots to the "screenshots" folder.\n`);
+    console.log(`\n  Tip: Add screenshots to device folders (e.g., screenshots/iphone/, screenshots/ipad/).\n`);
     process.exit(1);
   }
-
-  // Determine devices to generate
-  const deviceKeys = options.device
-    ? [options.device]
-    : (config.devices || ['iphone-6.5']);
 
   // Validate devices
   for (const key of deviceKeys) {
@@ -218,6 +241,13 @@ export async function generate(options) {
         }
 
         for (const screenshot of config.screenshots) {
+          // Resolve device-specific source path
+          const { resolvedPath: resolvedSource, isDeviceSpecific } = resolveSource(
+            screenshot.source,
+            deviceKey,
+            configDir
+          );
+
           // Get localized text if available
           let headline = screenshot.headline;
           let subheadline = screenshot.subheadline;
@@ -261,7 +291,7 @@ export async function generate(options) {
           // Build URL parameters
           // Use relative path for screenshot so it's served via HTTP
           const params = new URLSearchParams({
-            screenshot: screenshot.source,
+            screenshot: resolvedSource,
             background: screenshot.background || '',
             headline: headline || '',
             subheadline: subheadline || '',
@@ -341,7 +371,7 @@ export async function generate(options) {
 
           if (!imageLoadResult.success) {
             console.log(`      Warning: Failed to load image for ${screenshot.id}`);
-            console.log(`        Source: ${screenshot.source}`);
+            console.log(`        Source: ${resolvedSource}`);
           }
 
           // Wait for status bar to load if enabled
@@ -370,7 +400,8 @@ export async function generate(options) {
               });
 
               const stats = statSync(outputPath);
-              console.log(`      ${sliceId}.png (${(stats.size / 1024).toFixed(0)} KB)`);
+              const sourceInfo = isDeviceSpecific ? ` [${resolvedSource}]` : '';
+              console.log(`      ${sliceId}.png (${(stats.size / 1024).toFixed(0)} KB)${sourceInfo}`);
               totalGenerated++;
             }
 
@@ -389,7 +420,8 @@ export async function generate(options) {
             });
 
             const stats = statSync(outputPath);
-            console.log(`      ${screenshot.id}.png (${(stats.size / 1024).toFixed(0)} KB)`);
+            const sourceInfo = isDeviceSpecific ? ` [${resolvedSource}]` : '';
+            console.log(`      ${screenshot.id}.png (${(stats.size / 1024).toFixed(0)} KB)${sourceInfo}`);
             totalGenerated++;
           }
         }

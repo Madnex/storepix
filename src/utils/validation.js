@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { resolveSource } from './resolve-source.js';
 
 // PNG signature bytes
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
@@ -123,10 +124,13 @@ export function validateAllScreenshots(screenshots, configDir, deviceKeys, devic
   let hasErrors = false;
 
   for (const screenshot of screenshots) {
-    const sourcePath = join(configDir, screenshot.source);
-
     for (const deviceKey of deviceKeys) {
       const device = devices[deviceKey];
+
+      // Resolve device-specific source path
+      const { resolvedPath } = resolveSource(screenshot.source, deviceKey, configDir);
+      const sourcePath = join(configDir, resolvedPath);
+
       const validation = validateScreenshot(sourcePath, device);
 
       if (!validation.valid) {
@@ -135,7 +139,7 @@ export function validateAllScreenshots(screenshots, configDir, deviceKeys, devic
 
       results.push({
         screenshotId: screenshot.id,
-        source: screenshot.source,
+        source: resolvedPath,
         device: deviceKey,
         deviceName: device.name,
         ...validation
