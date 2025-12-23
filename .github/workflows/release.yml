@@ -4,13 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version bump type'
+        description: 'Version bump type (ignored if custom_version is set)'
         required: true
         type: choice
         options:
           - patch
           - minor
           - major
+      custom_version:
+        description: 'Custom version (e.g., 0.3.1) - leave empty to use bump type'
+        required: false
+        type: string
 
 jobs:
   release:
@@ -46,7 +50,11 @@ jobs:
       - name: Bump version
         id: version
         run: |
-          npm version ${{ inputs.version }} --no-git-tag-version
+          if [ -n "${{ inputs.custom_version }}" ]; then
+            npm version ${{ inputs.custom_version }} --no-git-tag-version
+          else
+            npm version ${{ inputs.version }} --no-git-tag-version
+          fi
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           git add package.json package-lock.json
