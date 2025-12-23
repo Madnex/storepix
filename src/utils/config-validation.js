@@ -39,7 +39,7 @@ export function loadTemplateSchema(configDir, templateName) {
 /**
  * Get list of known screenshot config fields (reserved keys)
  */
-const RESERVED_KEYS = ['id', 'source', 'theme', 'layout', 'slices', 'headline', 'subheadline', 'headlines', 'subheadlines', 'background'];
+const RESERVED_KEYS = ['id', 'source', 'theme', 'layout', 'slices', 'headline', 'subheadline', 'headlines', 'subheadlines', 'background', 'logo'];
 
 /**
  * Compute Levenshtein distance between two strings
@@ -323,6 +323,7 @@ export function validateConfig(config, configDir) {
     slices: ['panorama'],
     headlines: ['panorama'],
     subheadlines: ['panorama'],
+    logo: ['feature-graphic'],
   };
 
   for (const screenshot of config.screenshots || []) {

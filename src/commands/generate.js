@@ -91,15 +91,23 @@ export async function generate(options) {
     : (config.devices || ['iphone-6.5']);
 
   // Validate screenshot source files exist (checking device-specific paths)
+  // Skip validation for promotional devices (like feature graphics) that don't need source images
   const missingScreenshots = [];
   for (const screenshot of config.screenshots) {
-    if (!screenshot.source) {
-      console.log(`  Error: Screenshot "${screenshot.id}" is missing a "source" path\n`);
-      process.exit(1);
-    }
-
     // Check each device has a valid source (device-specific or base)
     for (const deviceKey of deviceKeys) {
+      const device = getDevice(deviceKey);
+
+      // Skip source validation for promotional assets (they don't require screenshot sources)
+      if (device.type === 'promotional') {
+        continue;
+      }
+
+      if (!screenshot.source) {
+        console.log(`  Error: Screenshot "${screenshot.id}" is missing a "source" path\n`);
+        process.exit(1);
+      }
+
       const { resolvedPath } = resolveSource(screenshot.source, deviceKey, configDir);
       const absolutePath = join(configDir, resolvedPath);
 
@@ -177,6 +185,20 @@ export async function generate(options) {
     }
   }
 
+  // Check if feature-graphic template is needed (for promotional devices)
+  const hasPromotionalDevices = deviceKeys.some(key => getDevice(key).type === 'promotional');
+  if (hasPromotionalDevices && !templateExistsInProject(configDir, 'feature-graphic')) {
+    console.log(`  Template "feature-graphic" not found in project, attempting to add it...`);
+    const result = tryAddTemplate(configDir, 'feature-graphic');
+    if (result.success) {
+      console.log(`  ${result.message}\n`);
+    } else {
+      console.log(`\n  Error: ${result.message}`);
+      console.log(`\n  Tip: Run "npx storepix add-template feature-graphic" to add the template.\n`);
+      process.exit(1);
+    }
+  }
+
   const templateDir = join(configDir, 'templates', template);
   const htmlPath = join(templateDir, 'index.html');
 
@@ -241,12 +263,14 @@ export async function generate(options) {
         }
 
         for (const screenshot of config.screenshots) {
-          // Resolve device-specific source path
-          const { resolvedPath: resolvedSource, isDeviceSpecific } = resolveSource(
-            screenshot.source,
-            deviceKey,
-            configDir
-          );
+          // Resolve device-specific source path (skip for promotional devices)
+          let resolvedSource = '';
+          let isDeviceSpecific = false;
+          if (screenshot.source) {
+            const resolved = resolveSource(screenshot.source, deviceKey, configDir);
+            resolvedSource = resolved.resolvedPath;
+            isDeviceSpecific = resolved.isDeviceSpecific;
+          }
 
           // Get localized text if available
           let headline = screenshot.headline;
@@ -266,7 +290,7 @@ export async function generate(options) {
           const reservedKeys = new Set([
             'id', 'source', 'theme', 'layout', 'slices',
             'headline', 'subheadline', 'headlines', 'subheadlines',
-            'background'
+            'background', 'logo'
           ]);
           const customContent = {};
           for (const [key, value] of Object.entries(screenshot)) {
@@ -288,13 +312,17 @@ export async function generate(options) {
           const slices = screenshot.slices || 1;
           const isPanorama = slices > 1;
 
+          // Determine if this is a promotional asset (like feature graphic)
+          const isPromotional = device.type === 'promotional';
+
           // Build URL parameters
           // Use relative path for screenshot so it's served via HTTP
           const params = new URLSearchParams({
-            screenshot: resolvedSource,
+            screenshot: resolvedSource || '',
             background: screenshot.background || '',
             headline: headline || '',
             subheadline: subheadline || '',
+            logo: screenshot.logo || '',
             theme: screenshot.theme || 'light',
             layout: screenshot.layout || 'top',
             // Pass device info for CSS scaling
@@ -331,7 +359,9 @@ export async function generate(options) {
             params.set('customContent', JSON.stringify(customContent));
           }
 
-          const url = `${baseUrl}?${params.toString()}`;
+          // For promotional devices, use feature-graphic template directly
+          const templatePath = isPromotional ? '/templates/feature-graphic/index.html' : '';
+          const url = `${baseUrl}${templatePath}?${params.toString()}`;
 
           // For panorama, we need a wider viewport
           if (isPanorama) {
@@ -344,34 +374,37 @@ export async function generate(options) {
           await page.goto(url, { waitUntil: 'networkidle' });
 
           // Wait for screenshot image to load with better error handling
-          const imgSelector = '#screenshot-img';
-          try {
-            await page.waitForSelector(imgSelector, { state: 'visible', timeout: 5000 });
-          } catch {
-            console.log(`      Warning: Screenshot image element not found in template`);
-          }
+          // Skip for promotional assets which don't have screenshot images
+          if (!isPromotional) {
+            const imgSelector = '#screenshot-img';
+            try {
+              await page.waitForSelector(imgSelector, { state: 'visible', timeout: 5000 });
+            } catch {
+              console.log(`      Warning: Screenshot image element not found in template`);
+            }
 
-          const imageLoadResult = await page.evaluate(() => {
-            return new Promise((resolve) => {
-              const img = document.getElementById('screenshot-img');
-              if (!img) {
-                resolve({ success: true, reason: 'no-img-element' });
-                return;
-              }
-              if (img.complete && img.naturalWidth > 0) {
-                resolve({ success: true, width: img.naturalWidth, height: img.naturalHeight });
-              } else if (img.complete && img.naturalWidth === 0) {
-                resolve({ success: false, reason: 'image-load-failed' });
-              } else {
-                img.onload = () => resolve({ success: true, width: img.naturalWidth, height: img.naturalHeight });
-                img.onerror = () => resolve({ success: false, reason: 'image-load-error' });
-              }
+            const imageLoadResult = await page.evaluate(() => {
+              return new Promise((resolve) => {
+                const img = document.getElementById('screenshot-img');
+                if (!img) {
+                  resolve({ success: true, reason: 'no-img-element' });
+                  return;
+                }
+                if (img.complete && img.naturalWidth > 0) {
+                  resolve({ success: true, width: img.naturalWidth, height: img.naturalHeight });
+                } else if (img.complete && img.naturalWidth === 0) {
+                  resolve({ success: false, reason: 'image-load-failed' });
+                } else {
+                  img.onload = () => resolve({ success: true, width: img.naturalWidth, height: img.naturalHeight });
+                  img.onerror = () => resolve({ success: false, reason: 'image-load-error' });
+                }
+              });
             });
-          });
 
-          if (!imageLoadResult.success) {
-            console.log(`      Warning: Failed to load image for ${screenshot.id}`);
-            console.log(`        Source: ${resolvedSource}`);
+            if (!imageLoadResult.success) {
+              console.log(`      Warning: Failed to load image for ${screenshot.id}`);
+              console.log(`        Source: ${resolvedSource}`);
+            }
           }
 
           // Wait for status bar to load if enabled
