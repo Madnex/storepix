@@ -140,6 +140,9 @@ App Store requires `ipad-13` for iPad apps.
 | `android-tablet-7` | 7" | 1080x1920 | Android Tablet 7" |
 | `android-tablet-10` | 10" | 1200x1920 | Android Tablet 10" |
 | `android-wear` | 1.4" | 384x384 | Wear OS |
+| `android-feature-graphic` | - | 1024x500 | Feature Graphic |
+
+The Feature Graphic is a promotional banner required for Google Play Store listings.
 
 ## Templates
 
@@ -174,6 +177,7 @@ Background image support with device mockup. For lifestyle or contextual shots.
 ```
 
 ### `panorama`
+
 Rotated device at an angle with multi-slice panorama support. Eye-catching and playful.
 
 ```javascript
@@ -187,6 +191,22 @@ Rotated device at an angle with multi-slice panorama support. Eye-catching and p
   subheadlines: ['Desc 1', 'Desc 2'],   // Array for panorama mode
 }
 ```
+
+### `feature-graphic`
+
+Google Play Store feature graphic (1024x500). Auto-selected when using `android-feature-graphic` device.
+
+```javascript
+{
+  id: 'feature',
+  headline: 'My App Name',
+  subheadline: 'The best way to...',
+  logo: './assets/app-icon.png',  // Optional app icon
+  theme: 'light',
+}
+```
+
+No `source` screenshot is needed - this template generates a promotional banner with your text and optional logo. The gradient background uses your `theme.primary` color.
 
 Add templates to your project:
 

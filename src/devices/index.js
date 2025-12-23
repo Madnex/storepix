@@ -234,6 +234,22 @@ export const devices = {
       padding: 0,
       notch: null
     }
+  },
+
+  // ============================================
+  // Promotional Assets
+  // ============================================
+
+  // Android Feature Graphic - Play Store promotional image
+  // Required: 1024x500 PNG or JPEG, up to 15 MB
+  'android-feature-graphic': {
+    name: 'Android Feature Graphic',
+    width: 1024,
+    height: 500,
+    displaySize: 'Feature Graphic',
+    platform: 'android',
+    type: 'promotional',
+    frame: null
   }
 };
 

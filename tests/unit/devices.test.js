@@ -28,7 +28,7 @@ describe('devices module', () => {
     });
 
     it('should have all expected Android devices', () => {
-      const androidKeys = ['android-phone', 'android-tablet-7', 'android-tablet-10', 'android-wear'];
+      const androidKeys = ['android-phone', 'android-tablet-7', 'android-tablet-10', 'android-wear', 'android-feature-graphic'];
       for (const key of androidKeys) {
         assert.ok(devices[key], `Missing device: ${key}`);
         assert.strictEqual(devices[key].platform, 'android');
@@ -45,8 +45,13 @@ describe('devices module', () => {
       }
     });
 
-    it('should have frame configuration for all devices', () => {
+    it('should have frame configuration for non-promotional devices', () => {
       for (const [key, device] of Object.entries(devices)) {
+        // Skip promotional devices (like feature graphics) which don't have frames
+        if (device.type === 'promotional') {
+          assert.strictEqual(device.frame, null, `${key} (promotional) should have null frame`);
+          continue;
+        }
         assert.ok(device.frame, `${key} should have frame config`);
         assert.ok(typeof device.frame.borderRadius === 'number', `${key} should have borderRadius`);
         assert.ok(typeof device.frame.padding === 'number', `${key} should have padding`);
@@ -119,9 +124,9 @@ describe('devices module', () => {
       assert.strictEqual(iosDevices.length, 10); // 7 iPhones + 3 iPads
     });
 
-    it('should return all 4 Android devices', () => {
+    it('should return all 5 Android devices', () => {
       const androidDevices = getDevicesByPlatform('android');
-      assert.strictEqual(androidDevices.length, 4);
+      assert.strictEqual(androidDevices.length, 5);
     });
   });
 
@@ -176,6 +181,16 @@ describe('devices module', () => {
       assert.strictEqual(device.width, 384);
       assert.strictEqual(device.height, 384);
       assert.strictEqual(device.frame.borderRadius, 192); // Circular
+    });
+
+    it('should have correct specifications for Android Feature Graphic', () => {
+      const device = devices['android-feature-graphic'];
+      assert.strictEqual(device.width, 1024);
+      assert.strictEqual(device.height, 500);
+      assert.strictEqual(device.type, 'promotional');
+      assert.strictEqual(device.frame, null);
+      assert.strictEqual(device.platform, 'android');
+      assert.strictEqual(device.displaySize, 'Feature Graphic');
     });
   });
 });

@@ -127,6 +127,16 @@ export function validateAllScreenshots(screenshots, configDir, deviceKeys, devic
     for (const deviceKey of deviceKeys) {
       const device = devices[deviceKey];
 
+      // Skip validation for promotional devices (like feature graphics) that don't require source images
+      if (device.type === 'promotional') {
+        continue;
+      }
+
+      // Skip if no source (shouldn't happen for non-promotional, but be safe)
+      if (!screenshot.source) {
+        continue;
+      }
+
       // Resolve device-specific source path
       const { resolvedPath } = resolveSource(screenshot.source, deviceKey, configDir);
       const sourcePath = join(configDir, resolvedPath);

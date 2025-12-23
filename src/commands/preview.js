@@ -310,9 +310,10 @@ export async function preview(options) {
       previewSlices = s.slices || 1;
 
       const params = new URLSearchParams({
-        screenshot: s.source,
+        screenshot: s.source || '',
         headline: s.headline || '',
         subheadline: s.subheadline || '',
+        logo: s.logo || '',
         theme: s.theme || 'light',
         layout: s.layout || 'top',
         slices: previewSlices.toString()
@@ -352,7 +353,10 @@ export async function preview(options) {
         }
       }
 
-      previewUrl = `http://localhost:${port}?${params.toString()}`;
+      // For promotional devices, use feature-graphic template directly
+      const isPromotional = selectedDevice?.type === 'promotional';
+      const templatePath = isPromotional ? '/templates/feature-graphic/index.html' : '';
+      previewUrl = `http://localhost:${port}${templatePath}?${params.toString()}`;
       const panoramaInfo = previewSlices > 1 ? ` (${previewSlices}-slice panorama)` : '';
       console.log(`  Preview first screenshot${panoramaInfo}:`);
       console.log(`  ${previewUrl}\n`);
