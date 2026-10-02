@@ -194,3 +194,14 @@ describe('devices module', () => {
     });
   });
 });
+
+// Store upload group sizes must not be inferred from historical preset names.
+it('maps every iOS preset to an accepted upload size in both orientations', async () => {
+  const { presetUploadTargets, acceptsUploadSize } = await import('../../src/devices/upload-targets.js');
+  for (const [key, target] of Object.entries(presetUploadTargets)) {
+    const { width, height } = devices[key];
+    assert.ok(acceptsUploadSize(target, width, height), key);
+    assert.ok(acceptsUploadSize(target, height, width), key + ' landscape');
+  }
+  assert.equal(acceptsUploadSize('app-store-iphone-6.1', 1179, 2556), false);
+});

@@ -22,3 +22,5 @@ npm-debug.log*
 test-project/
 tmp/
 .storepix-test
+# Render cache
+.storepix-cache.json

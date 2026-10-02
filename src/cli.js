@@ -37,8 +37,11 @@ program
   .option('-t, --template <name>', 'Template to use (overrides config)')
   .option('-l, --locale <locale>', 'Generate only specific locale')
   .option('-d, --device <device>', 'Generate only specific device size')
-  .option('--no-parallel', 'Disable parallel generation')
-  .option('--skip-validation', 'Skip screenshot dimension validation')
+  .option('--no-parallel', 'Generate one job at a time')
+  .option('--cache', 'Reuse unchanged outputs for deterministic local projects')
+  .option('--concurrency <count>', 'Maximum render workers (1-8, memory bounded)', '2')
+  .option('--orientation <orientation>', 'portrait or landscape')
+  .option('--skip-validation', 'Skip source and template checks (output validation always runs)')
   .action(generate);
 
 program
@@ -50,7 +53,18 @@ program
   .option('-w, --watch', 'Enable watch mode with hot reload')
   .option('-o, --open', 'Open browser window at device size')
   .option('-d, --device <device>', 'Device size for browser window (default: first in config)')
-  .action(preview);
+  .option('-l, --locale <locale>', 'Preview one locale')
+  .option('--orientation <orientation>', 'portrait or landscape')
+  .action(async options => {
+    const session = await preview(options);
+    const shutdown = async () => {
+      process.off('SIGINT', shutdown);
+      process.off('SIGTERM', shutdown);
+      try { await session.close(); } catch (error) { console.error(error.message); process.exitCode = 1; }
+    };
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
+  });
 
 program
   .command('upgrade')
@@ -81,4 +95,9 @@ program
   .option('-d, --dir <path>', 'Project directory', './storepix')
   .action(types);
 
-program.parse();
+try {
+  await program.parseAsync();
+} catch (error) {
+  console.error(`\n  Error: ${error.message}\n`);
+  process.exitCode = 1;
+}

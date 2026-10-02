@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Storepix preview</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f2f1ee;color:#20201e;font:15px system-ui,sans-serif}
+header{padding:18px 24px;background:#fff;border-bottom:1px solid #d8d7d2;display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+h1{font-size:19px;margin:0 12px 0 0}label{display:grid;gap:5px;font-size:12px;color:#555}select{font:inherit;font-size:14px;min-width:140px;padding:7px;border:1px solid #bbb;border-radius:4px;background:white;color:#20201e}
+main{padding:24px;overflow:auto}#error{color:#9b2626;white-space:pre-wrap;margin:0 0 16px}#details{margin:0 0 16px;color:#555}#canvas{position:relative;background:white}iframe{border:0;transform-origin:top left;position:absolute;top:0;left:0}a{color:inherit}#empty{padding:24px}
+</style>
+</head>
+<body>
+<header><h1>Storepix</h1><label>Screenshot<select id="screenshot"></select></label><label>Device<select id="device"></select></label><label>Locale<select id="locale"></select></label><a id="open" target="_blank" rel="noopener">Open artwork</a></header>
+<main><p id="error" role="alert"></p><p id="details"></p><div id="canvas"><iframe title="Screenshot artwork"></iframe></div></main>
+<script>
+const selectors = { id: document.querySelector('#screenshot'), deviceKey: document.querySelector('#device'), locale: document.querySelector('#locale') };
+const frame = document.querySelector('iframe');
+let jobs = [], current, revision = 0;
+function render() {
+ current = jobs.find(job => Object.entries(selectors).every(([key, select]) => (job[key] || '') === select.value));
+ if (!current) return;
+ frame.width = current.viewport.width; frame.height = current.viewport.height;
+ frame.src = current.url + '&previewRevision=' + revision;
+ document.querySelector('#open').href = frame.src;
+ document.querySelector('#details').textContent = `${current.template} · ${current.viewport.width} × ${current.viewport.height}`;
+ resize();
+}
+function resize() {
+ if (!current) return;
+ const scale = Math.min(1, (innerWidth - 48) / current.viewport.width, Math.max(200, innerHeight - 190) / current.viewport.height);
+ frame.style.transform = `scale(${scale})`;
+ document.querySelector('#canvas').style.width = current.viewport.width * scale + 'px';
+ document.querySelector('#canvas').style.height = current.viewport.height * scale + 'px';
+}
+let pending = Promise.resolve();
+function refresh() {
+ pending = pending.then(async () => {
+  try {
+   const response = await fetch('/__storepix/jobs', { cache: 'no-store' }); const data = await response.json();
+   if (!response.ok) throw new Error(data.error);
+   jobs = data.jobs; revision++;
+   for (const [key, select] of Object.entries(selectors)) {
+    const previous = select.value; select.replaceChildren();
+    for (const value of new Set(jobs.map(job => job[key] || ''))) select.add(new Option(value || 'Default', value));
+    if ([...select.options].some(option => option.value === previous)) select.value = previous;
+   }
+   document.querySelector('#error').textContent = ''; render();
+  } catch (error) { document.querySelector('#error').textContent = error.message; }
+ });
+}
+for (const select of Object.values(selectors)) select.addEventListener('change', render);
+addEventListener('resize', resize);
+const events = new EventSource('/__storepix/events');
+events.onmessage = event => { if (event.data === 'reload') refresh(); };
+refresh();
+</script>
+</body></html>

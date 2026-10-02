@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>App Store Screenshot</title>
   <link rel="stylesheet" href="styles.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../fonts/inter.css">
 </head>
 <body>
   <div class="screenshot-frame" id="screenshot-frame">
@@ -43,8 +41,8 @@
 
     const config = {
       screenshot: urlParams.get('screenshot') || '',
-      headline: urlParams.get('headline') || 'Your headline',
-      subheadline: urlParams.get('subheadline') || 'here',
+      headline: urlParams.get('headline') ?? 'Your headline',
+      subheadline: urlParams.get('subheadline') ?? 'here',
       theme: urlParams.get('theme') || 'light',
       layout: urlParams.get('layout') || 'top',
       deviceWidth: parseInt(urlParams.get('deviceWidth')) || 1284,
@@ -57,7 +55,7 @@
       // Status bar configuration
       statusBar: urlParams.get('statusBar') === 'true',
       statusBarTime: urlParams.get('statusBarTime') || '9:41',
-      statusBarBattery: parseInt(urlParams.get('statusBarBattery')) || 100,
+      statusBarBattery: Number(urlParams.get('statusBarBattery') ?? 100),
       statusBarShowPercent: urlParams.get('statusBarShowPercent') !== 'false',
       statusBarStyle: urlParams.get('statusBarStyle') || 'auto',
     };
@@ -147,7 +145,7 @@
 
     // Status bar initialization
     if (config.statusBar) {
-      initStatusBar();
+      window.storepixReady = initStatusBar();
     }
 
     async function initStatusBar() {
@@ -168,7 +166,9 @@
         const link = document.createElement('link');
         link.rel = 'stylesheet';
         link.href = '/status-bar/styles.css';
+        const stylesheetReady = new Promise((resolve, reject) => { link.onload = resolve; link.onerror = () => reject(new Error('Status bar stylesheet failed')); });
         document.head.appendChild(link);
+        await stylesheetReady;
 
         // Configure status bar
         const statusBar = document.getElementById('status-bar');
@@ -242,7 +242,7 @@
         }
 
       } catch (err) {
-        console.warn('Failed to load status bar:', err.message);
+        window.storepixRenderError = err.message;
       }
     }
   </script>

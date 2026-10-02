@@ -41,9 +41,9 @@ export class FileWatcher extends EventEmitter {
   /**
    * Stop watching files
    */
-  stop() {
+  async stop() {
     if (this.watcher) {
-      this.watcher.close();
+      await this.watcher.close();
       this.watcher = null;
     }
   }

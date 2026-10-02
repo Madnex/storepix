@@ -33,9 +33,9 @@ src/
 └── templates/
     ├── default/        # Gradient background with device frame
     ├── minimal/        # Solid background with device frame
-    ├── plain/          # Screenshot only, no device frame
     ├── photo/          # Photo/image background with device frame
-    └── split/          # Side-by-side text and device layout
+    ├── panorama/       # Multi-slice layout
+    └── feature-graphic/ # Play Store banner
 ```
 
 ### Key Patterns
@@ -76,7 +76,6 @@ src/
 |----------|-------------|----------|
 | `default` | Gradient background with decorative blurs | App Store marketing |
 | `minimal` | Solid color background | Clean, simple look |
-| `plain` | Screenshot only, no frame | Play Store, custom framing |
 | `photo` | Background image support | Lifestyle/contextual shots |
 | `split` | Side-by-side text + device | iPad, landscape-friendly |
 

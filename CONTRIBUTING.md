@@ -18,6 +18,9 @@ Thanks for your interest in contributing! Here's how to get started.
 3. Verify everything works:
    ```bash
    npm test
+   npx playwright install chromium
+   npm run test:render
+   npm run check:docs
    node src/cli.js --help
    ```
 

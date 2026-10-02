@@ -1,3 +1,5 @@
+import { ensureSharedAssets } from '../utils/template-helper.js';
+import { StorepixError } from '../utils/errors.js';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, cpSync, readdirSync, statSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -137,8 +139,10 @@ export async function upgrade(options) {
   if (!existsSync(targetDir)) {
     console.log(`  Error: Directory not found: ${targetDir}`);
     console.log('  Run "npx storepix init" first to create a project.\n');
-    process.exit(1);
+    throw new StorepixError('COMMAND', 'upgrade failed; see diagnostics above.');
   }
+
+  if (!dryRun) ensureSharedAssets(targetDir);
 
   // Load version info
   const versionFilePath = join(targetDir, '.storepix-version.json');
@@ -174,7 +178,7 @@ export async function upgrade(options) {
 
     if (!versionInfo) {
       console.log('  Error: Could not detect project template.\n');
-      process.exit(1);
+      throw new StorepixError('COMMAND', 'upgrade failed; see diagnostics above.');
     }
   }
 
@@ -197,7 +201,7 @@ export async function upgrade(options) {
     const available = readdirSync(packageTemplatesDir)
       .filter(t => t !== 'status-bar' && existsSync(join(packageTemplatesDir, t, 'index.html')));
     console.log(`  Available templates: ${available.join(', ')}\n`);
-    process.exit(1);
+    throw new StorepixError('COMMAND', 'upgrade failed; see diagnostics above.');
   }
 
   // Analyze changes in main template
