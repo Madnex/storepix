@@ -1,471 +1,66 @@
 import { chromium } from 'playwright';
-import { createServer } from 'http';
-import { existsSync, mkdirSync, statSync } from 'fs';
-import { join, dirname, resolve } from 'path';
-import { pathToFileURL } from 'url';
-import handler from 'serve-handler';
-import { devices, getDevice } from '../devices/index.js';
-import { validateAllScreenshots, printValidationResults } from '../utils/validation.js';
-import { templateExistsInProject, tryAddTemplate, getAvailableTemplates } from '../utils/template-helper.js';
-import { validateConfig, printConfigValidation } from '../utils/config-validation.js';
-import { resolveSource, getDeviceType, buildDeviceSpecificPath } from '../utils/resolve-source.js';
+import { mkdir, writeFile, rename, rm } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { openRenderCache } from '../utils/render-cache.js';
+import { randomUUID } from 'node:crypto';
+import { loadConfig, buildRenderJobs, ensureTemplates } from '../utils/render-jobs.js';
+import { startServer } from '../utils/server.js';
+import { renderJob, runPool } from '../utils/render.js';
+import { validateScreenshot } from '../utils/validation.js';
+import { validateConfig } from '../utils/config-validation.js';
+import { StorepixError } from '../utils/errors.js';
 
-/**
- * Start a local HTTP server to serve template files
- * This is needed because fetch() doesn't work with file:// URLs
- */
-function startServer(configDir, template) {
-  return new Promise((resolvePromise) => {
-    const server = createServer(async (req, res) => {
-      await handler(req, res, {
-        public: configDir,
-        directoryListing: false,
-        cleanUrls: false,
-        trailingSlash: false,
-        rewrites: [
-          { source: '/', destination: `/templates/${template}/index.html` },
-          { source: '/index.html', destination: `/templates/${template}/index.html` },
-          { source: '/styles.css', destination: `/templates/${template}/styles.css` },
-          // Custom content helper script
-          { source: '/storepix-content.js', destination: '/templates/storepix-content.js' },
-          // Status bar files - explicit rewrites for each file
-          { source: '/status-bar/ios.html', destination: '/templates/status-bar/ios.html' },
-          { source: '/status-bar/android.html', destination: '/templates/status-bar/android.html' },
-          { source: '/status-bar/styles.css', destination: '/templates/status-bar/styles.css' },
-        ]
-      });
-    });
-
-    // Find available port starting from 3456
-    let port = 3456;
-    const tryListen = () => {
-      server.once('error', (err) => {
-        if (err.code === 'EADDRINUSE') {
-          port++;
-          tryListen();
-        }
-      });
-      server.listen(port, () => {
-        resolvePromise({ server, port });
-      });
-    };
-    tryListen();
-  });
-}
-
-export async function generate(options) {
-  const configPath = resolve(options.config);
-
-  // Load config
-  if (!existsSync(configPath)) {
-    console.log(`\n  Error: Config file not found`);
-    console.log(`    Path: ${configPath}`);
-    console.log(`\n  Tip: Run "npx storepix init" to create a new project.\n`);
-    process.exit(1);
-  }
-
+export async function generate(options = {}) {
+  const configPath = resolve(options.config || './storepix/storepix.config.js');
   const configDir = dirname(configPath);
-
-  let config;
-  try {
-    config = (await import(pathToFileURL(configPath).href)).default;
-  } catch (err) {
-    console.log(`\n  Error: Failed to load config file`);
-    console.log(`    Path: ${configPath}`);
-    console.log(`    ${err.message}\n`);
-    process.exit(1);
-  }
-
-  console.log('\n  storepix - Generating App Store Screenshots\n');
-
-  // Validate screenshots array exists
-  if (!config.screenshots || !Array.isArray(config.screenshots) || config.screenshots.length === 0) {
-    console.log(`  Error: No screenshots defined in config`);
-    console.log(`    Add a "screenshots" array to your storepix.config.js\n`);
-    process.exit(1);
-  }
-
-  // Determine devices early (needed for source validation)
-  const deviceKeys = options.device
-    ? [options.device]
-    : (config.devices || ['iphone-6.5']);
-
-  // Validate screenshot source files exist (checking device-specific paths)
-  // Skip validation for promotional devices (like feature graphics) that don't need source images
-  const missingScreenshots = [];
-  for (const screenshot of config.screenshots) {
-    // Check each device has a valid source (device-specific or base)
-    for (const deviceKey of deviceKeys) {
-      const device = getDevice(deviceKey);
-
-      // Skip source validation for promotional assets (they don't require screenshot sources)
-      if (device.type === 'promotional') {
-        continue;
-      }
-
-      if (!screenshot.source) {
-        console.log(`  Error: Screenshot "${screenshot.id}" is missing a "source" path\n`);
-        process.exit(1);
-      }
-
-      const { resolvedPath } = resolveSource(screenshot.source, deviceKey, configDir);
-      const absolutePath = join(configDir, resolvedPath);
-
-      if (!existsSync(absolutePath)) {
-        const deviceType = getDeviceType(deviceKey);
-        const deviceSpecificPath = deviceType
-          ? buildDeviceSpecificPath(screenshot.source, deviceType)
-          : screenshot.source;
-
-        missingScreenshots.push({
-          id: screenshot.id,
-          device: deviceKey,
-          deviceType,
-          expectedPaths: [
-            deviceSpecificPath,
-            screenshot.source
-          ]
-        });
-      }
-    }
-  }
-
-  if (missingScreenshots.length > 0) {
-    console.log(`  Error: Screenshot source files not found\n`);
-    for (const missing of missingScreenshots) {
-      console.log(`    - ${missing.id} (${missing.device}):`);
-      console.log(`      Expected: ${missing.expectedPaths[0]}`);
-      if (missing.expectedPaths[0] !== missing.expectedPaths[1]) {
-        console.log(`            or: ${missing.expectedPaths[1]}`);
-      }
-    }
-    console.log(`\n  Tip: Add screenshots to device folders (e.g., screenshots/iphone/, screenshots/ipad/).\n`);
-    process.exit(1);
-  }
-
-  // Validate devices
-  for (const key of deviceKeys) {
-    if (!devices[key]) {
-      console.log(`  Error: Unknown device "${key}"`);
-      console.log(`\n  Available devices:`);
-      const iosDevices = Object.entries(devices).filter(([_, d]) => d.platform === 'ios');
-      const androidDevices = Object.entries(devices).filter(([_, d]) => d.platform === 'android');
-      console.log(`    iOS: ${iosDevices.map(([k]) => k).join(', ')}`);
-      console.log(`    Android: ${androidDevices.map(([k]) => k).join(', ')}\n`);
-      process.exit(1);
-    }
-  }
-
-  // Determine locales
-  const locales = options.locale
-    ? [options.locale]
-    : (config.locales ? Object.keys(config.locales) : [null]);
-
-  // Validate specified locale exists
-  if (options.locale && config.locales && !config.locales[options.locale]) {
-    console.log(`  Error: Unknown locale "${options.locale}"`);
-    console.log(`    Available: ${Object.keys(config.locales).join(', ')}\n`);
-    process.exit(1);
-  }
-
-  // Determine template (CLI option overrides config)
-  const template = options.template || config.template || 'default';
-
-  // Check if template exists in project, try to add it if not
-  if (!templateExistsInProject(configDir, template)) {
-    console.log(`  Template "${template}" not found in project, attempting to add it...`);
-    const result = tryAddTemplate(configDir, template);
-    if (result.success) {
-      console.log(`  ${result.message}\n`);
-    } else {
-      console.log(`\n  Error: ${result.message}`);
-      console.log(`\n  Tip: Run "npx storepix add-template <name>" to add a template.`);
-      console.log(`  Available templates: ${getAvailableTemplates().join(', ')}\n`);
-      process.exit(1);
-    }
-  }
-
-  // Check if feature-graphic template is needed (for promotional devices)
-  const hasPromotionalDevices = deviceKeys.some(key => getDevice(key).type === 'promotional');
-  if (hasPromotionalDevices && !templateExistsInProject(configDir, 'feature-graphic')) {
-    console.log(`  Template "feature-graphic" not found in project, attempting to add it...`);
-    const result = tryAddTemplate(configDir, 'feature-graphic');
-    if (result.success) {
-      console.log(`  ${result.message}\n`);
-    } else {
-      console.log(`\n  Error: ${result.message}`);
-      console.log(`\n  Tip: Run "npx storepix add-template feature-graphic" to add the template.\n`);
-      process.exit(1);
-    }
-  }
-
-  const templateDir = join(configDir, 'templates', template);
-  const htmlPath = join(templateDir, 'index.html');
-
-  // Validate screenshot dimensions (unless skipped)
+  const config = await loadConfig(configPath);
+  if (config.output?.format && config.output.format !== 'png') throw new StorepixError('CONFIG', 'Only PNG output is supported.');
+  const jobs = buildRenderJobs(config, configDir, options);
+  ensureTemplates(jobs, configDir);
+  const concurrency = options.parallel === false ? 1 : Number(options.concurrency ?? 2);
+  if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 8) throw new StorepixError('CONFIG', 'Concurrency must be an integer from 1 to 8.');
+  // Bound large panorama/iPad jobs to about 24 million canvas pixels in flight.
+  const workers = Math.min(concurrency, Math.max(1, Math.floor(24_000_000 / Math.max(...jobs.map(job => job.viewport.width * job.viewport.height)))));
   if (!options.skipValidation) {
-    console.log('  Validating screenshots...');
-    const validation = validateAllScreenshots(config.screenshots, configDir, deviceKeys, devices);
-    const { valid, hasWarnings } = printValidationResults(validation);
-
-    if (!valid) {
-      console.log('  Validation failed. Fix the errors above or use --skip-validation to proceed anyway.\n');
-      process.exit(1);
-    }
-
-    if (!hasWarnings) {
-      console.log('  All screenshots validated.\n');
-    }
-
-    // Validate config against template schema
-    const configValidation = validateConfig(config, configDir);
-    printConfigValidation(configValidation, template);
-
-    if (!configValidation.valid) {
-      process.exit(1);
-    }
-  }
-
-  // Start local HTTP server (needed for fetch() to work in templates)
-  const { server, port } = await startServer(configDir, template);
-  const baseUrl = `http://localhost:${port}`;
-
-  // Launch browser
-  const browser = await chromium.launch();
-
-  let totalGenerated = 0;
-
-  try {
-    for (const deviceKey of deviceKeys) {
-      const device = getDevice(deviceKey);
-      console.log(`  Device: ${device.name} (${device.width}x${device.height})`);
-
-      const context = await browser.newContext({
-        viewport: { width: device.width, height: device.height },
-        deviceScaleFactor: 1
-      });
-      const page = await context.newPage();
-
-      for (const locale of locales) {
-        const localeSuffix = locale ? `/${locale}` : '';
-        const outputBaseDir = join(
-          configDir,
-          config.output?.dir || './output',
-          locale || '',
-          deviceKey
-        );
-
-        // Ensure output directory exists
-        mkdirSync(outputBaseDir, { recursive: true });
-
-        if (locale) {
-          console.log(`    Locale: ${locale}`);
-        }
-
-        for (const screenshot of config.screenshots) {
-          // Resolve device-specific source path (skip for promotional devices)
-          let resolvedSource = '';
-          let isDeviceSpecific = false;
-          if (screenshot.source) {
-            const resolved = resolveSource(screenshot.source, deviceKey, configDir);
-            resolvedSource = resolved.resolvedPath;
-            isDeviceSpecific = resolved.isDeviceSpecific;
-          }
-
-          // Get localized text if available
-          let headline = screenshot.headline;
-          let subheadline = screenshot.subheadline;
-          let headlines = screenshot.headlines;
-          let subheadlines = screenshot.subheadlines;
-
-          if (locale && config.locales?.[locale]?.[screenshot.id]) {
-            const localized = config.locales[locale][screenshot.id];
-            headline = localized.headline || headline;
-            subheadline = localized.subheadline || subheadline;
-            headlines = localized.headlines || headlines;
-            subheadlines = localized.subheadlines || subheadlines;
-          }
-
-          // Collect custom content (any keys not reserved by storepix)
-          const reservedKeys = new Set([
-            'id', 'source', 'theme', 'layout', 'slices',
-            'headline', 'subheadline', 'headlines', 'subheadlines',
-            'background', 'logo'
-          ]);
-          const customContent = {};
-          for (const [key, value] of Object.entries(screenshot)) {
-            if (!reservedKeys.has(key)) {
-              customContent[key] = value;
-            }
-          }
-          // Merge with locale overrides for custom content
-          if (locale && config.locales?.[locale]?.[screenshot.id]) {
-            const localized = config.locales[locale][screenshot.id];
-            for (const [key, value] of Object.entries(localized)) {
-              if (!reservedKeys.has(key)) {
-                customContent[key] = value;
-              }
-            }
-          }
-
-          // Determine number of slices (for panorama mode)
-          const slices = screenshot.slices || 1;
-          const isPanorama = slices > 1;
-
-          // Determine if this is a promotional asset (like feature graphic)
-          const isPromotional = device.type === 'promotional';
-
-          // Build URL parameters
-          // Use relative path for screenshot so it's served via HTTP
-          const params = new URLSearchParams({
-            screenshot: resolvedSource || '',
-            background: screenshot.background || '',
-            headline: headline || '',
-            subheadline: subheadline || '',
-            logo: screenshot.logo || '',
-            theme: screenshot.theme || 'light',
-            layout: screenshot.layout || 'top',
-            // Pass device info for CSS scaling
-            deviceWidth: device.width.toString(),
-            deviceHeight: device.height.toString(),
-            // Pass device frame info for template customization
-            platform: device.platform || 'ios',
-            notchType: device.frame?.notch?.type || 'none',
-            notchWidth: (device.frame?.notch?.width || 0).toString(),
-            notchHeight: (device.frame?.notch?.height || 0).toString(),
-            hasHomeButton: (device.frame?.homeButton || false).toString(),
-            // Panorama/slicing
-            slices: slices.toString(),
-            // Status bar configuration
-            statusBar: (config.statusBar?.enabled ?? false).toString(),
-            statusBarTime: config.statusBar?.time || '9:41',
-            statusBarBattery: (config.statusBar?.battery ?? 100).toString(),
-            statusBarShowPercent: (config.statusBar?.showBatteryPercent ?? true).toString(),
-            statusBarStyle: config.statusBar?.style || 'auto',
-            // Pass theme variables
-            ...(config.theme && { themeJson: JSON.stringify(config.theme) })
-          });
-
-          // Add headlines/subheadlines arrays for panorama mode
-          if (isPanorama && headlines) {
-            params.set('headlines', JSON.stringify(headlines));
-          }
-          if (isPanorama && subheadlines) {
-            params.set('subheadlines', JSON.stringify(subheadlines));
-          }
-
-          // Add custom content for data-storepix bindings
-          if (Object.keys(customContent).length > 0) {
-            params.set('customContent', JSON.stringify(customContent));
-          }
-
-          // For promotional devices, use feature-graphic template directly
-          const templatePath = isPromotional ? '/templates/feature-graphic/index.html' : '';
-          const url = `${baseUrl}${templatePath}?${params.toString()}`;
-
-          // For panorama, we need a wider viewport
-          if (isPanorama) {
-            await page.setViewportSize({
-              width: device.width * slices,
-              height: device.height
-            });
-          }
-
-          await page.goto(url, { waitUntil: 'networkidle' });
-
-          // Wait for screenshot image to load with better error handling
-          // Skip for promotional assets which don't have screenshot images
-          if (!isPromotional) {
-            const imgSelector = '#screenshot-img';
-            try {
-              await page.waitForSelector(imgSelector, { state: 'visible', timeout: 5000 });
-            } catch {
-              console.log(`      Warning: Screenshot image element not found in template`);
-            }
-
-            const imageLoadResult = await page.evaluate(() => {
-              return new Promise((resolve) => {
-                const img = document.getElementById('screenshot-img');
-                if (!img) {
-                  resolve({ success: true, reason: 'no-img-element' });
-                  return;
-                }
-                if (img.complete && img.naturalWidth > 0) {
-                  resolve({ success: true, width: img.naturalWidth, height: img.naturalHeight });
-                } else if (img.complete && img.naturalWidth === 0) {
-                  resolve({ success: false, reason: 'image-load-failed' });
-                } else {
-                  img.onload = () => resolve({ success: true, width: img.naturalWidth, height: img.naturalHeight });
-                  img.onerror = () => resolve({ success: false, reason: 'image-load-error' });
-                }
-              });
-            });
-
-            if (!imageLoadResult.success) {
-              console.log(`      Warning: Failed to load image for ${screenshot.id}`);
-              console.log(`        Source: ${resolvedSource}`);
-            }
-          }
-
-          // Wait for status bar to load if enabled
-          if (config.statusBar?.enabled) {
-            await page.waitForTimeout(500);
-          }
-
-          // Small delay for any animations/rendering
-          await page.waitForTimeout(300);
-
-          if (isPanorama) {
-            // Capture full panorama and slice it
-            for (let i = 0; i < slices; i++) {
-              const sliceId = `${screenshot.id}-${i + 1}`;
-              const outputPath = join(outputBaseDir, `${sliceId}.png`);
-
-              await page.screenshot({
-                path: outputPath,
-                type: 'png',
-                clip: {
-                  x: i * device.width,
-                  y: 0,
-                  width: device.width,
-                  height: device.height
-                }
-              });
-
-              const stats = statSync(outputPath);
-              const sourceInfo = isDeviceSpecific ? ` [${resolvedSource}]` : '';
-              console.log(`      ${sliceId}.png (${(stats.size / 1024).toFixed(0)} KB)${sourceInfo}`);
-              totalGenerated++;
-            }
-
-            // Reset viewport to normal size for next screenshot
-            await page.setViewportSize({
-              width: device.width,
-              height: device.height
-            });
-          } else {
-            // Normal single screenshot
-            const outputPath = join(outputBaseDir, `${screenshot.id}.png`);
-            await page.screenshot({
-              path: outputPath,
-              type: 'png',
-              clip: { x: 0, y: 0, width: device.width, height: device.height }
-            });
-
-            const stats = statSync(outputPath);
-            const sourceInfo = isDeviceSpecific ? ` [${resolvedSource}]` : '';
-            console.log(`      ${screenshot.id}.png (${(stats.size / 1024).toFixed(0)} KB)${sourceInfo}`);
-            totalGenerated++;
-          }
-        }
+    const checked = new Set();
+    for (const job of jobs) {
+      const validation = validateConfig({ ...config, template: job.template, screenshots: [job.screenshot] }, configDir);
+      if (!validation.valid) throw new StorepixError('CONFIG', validation.errors.join('\n'));
+      const source = new URL(job.url, 'http://localhost').searchParams.get('screenshot');
+      if (job.device.type !== 'promotional' && source.startsWith('/') && !checked.has(source)) {
+        checked.add(source);
+        const result = await validateScreenshot(resolve(configDir, '.' + decodeURIComponent(source)), job.device);
+        if (!result.valid) throw new StorepixError('SOURCE', `${job.id}: ${result.errors.join('\n')}`);
+        for (const warning of result.warnings) console.log(`  ⚠ ${job.id}: ${warning}`);
       }
-
-      await context.close();
     }
-  } finally {
-    await browser.close();
-    server.close();
   }
-
-  console.log(`\n  Done! Generated ${totalGenerated} screenshots.\n`);
+  let server, browser;
+  const files = [];
+  let cached = 0;
+  try {
+    server = await startServer(configDir);
+    browser = await chromium.launch({ args: ['--force-color-profile=srgb'] });
+    const cache = options.cache ? await openRenderCache(configDir, resolve(configDir, config.output?.dir || 'output'), browser.version()) : null;
+    await runPool(jobs, workers, async job => {
+      if (await cache?.has(job)) { cached++; files.push(...job.paths); return; }
+      let external = false;
+      const images = await renderJob(browser, server.url, job, { onExternalRequest: () => { external = true; } });
+      for (let i = 0; i < images.length; i++) {
+        const path = job.paths[i];
+        await mkdir(dirname(path), { recursive: true });
+        const temporary = `${path}.${randomUUID()}.tmp`;
+        try { await writeFile(temporary, images[i]); await rename(temporary, path); }
+        finally { await rm(temporary, { force: true }); }
+        files.push(path);
+        console.log(`  ${path} (${Math.round(images[i].length / 1024)} KB)`);
+      }
+      if (!external) cache?.put(job, images);
+    });
+    await cache?.save();
+  } finally {
+    try { await browser?.close(); } finally { await server?.close(); }
+  }
+  console.log(`\n  Done! Generated ${files.length} screenshots (${workers} workers, ${cached} cached jobs).\n`);
+  return { files: files.sort(), workers, cached };
 }

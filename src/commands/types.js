@@ -1,3 +1,4 @@
+import { StorepixError } from '../utils/errors.js';
 import { existsSync, writeFileSync, readFileSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
@@ -19,7 +20,7 @@ export async function types(options) {
   if (!existsSync(targetDir)) {
     console.log(`  Error: Directory not found: ${targetDir}`);
     console.log('  Run "npx storepix init" first to create a project.\n');
-    process.exit(1);
+    throw new StorepixError('COMMAND', 'types failed; see diagnostics above.');
   }
 
   // Try to determine template from config or version file
@@ -167,6 +168,8 @@ export interface StorepixConfig {
   output?: StorepixOutput;
   /** Device sizes to generate */
   devices?: StorepixDevice[];
+  /** Output canvas orientation */
+  orientation?: 'portrait' | 'landscape';
   /** Theme customization (injected as CSS variables) */
   theme?: StorepixTheme;
   /** Status bar injection configuration */

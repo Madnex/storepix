@@ -1,3 +1,5 @@
+import { ensureSharedAssets } from '../utils/template-helper.js';
+import { StorepixError } from '../utils/errors.js';
 import { existsSync, mkdirSync, cpSync, writeFileSync, readdirSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -34,7 +36,7 @@ export async function init(options) {
   if (existsSync(targetDir)) {
     console.log(`  Directory ${targetDir} already exists.`);
     console.log('  Use a different directory or remove the existing one.\n');
-    process.exit(1);
+    throw new StorepixError('COMMAND', 'init failed; see diagnostics above.');
   }
 
   // Check if template exists
@@ -45,7 +47,7 @@ export async function init(options) {
     );
     console.log(`  Template "${templateName}" not found.`);
     console.log(`  Available templates: ${available.join(', ')}\n`);
-    process.exit(1);
+    throw new StorepixError('COMMAND', 'init failed; see diagnostics above.');
   }
 
   // Create directory structure
@@ -65,6 +67,8 @@ export async function init(options) {
     cpSync(statusBarSource, statusBarTarget, { recursive: true });
   }
 
+  ensureSharedAssets(targetDir);
+
   // Create config file (template-specific if schema available)
   const schema = loadPackageSchema(templateName);
   const configContent = generateConfigFromSchema(templateName, schema);
@@ -79,6 +83,9 @@ node_modules/
 
 # Upgrade backups
 .storepix-backup-*
+
+# Render cache
+.storepix-cache.json
 `;
   writeFileSync(join(targetDir, '.gitignore'), gitignoreContent);
 

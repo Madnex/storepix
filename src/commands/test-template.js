@@ -1,5 +1,8 @@
+import { startServer as startRenderServer } from '../utils/server.js';
+import { renderJob } from '../utils/render.js';
+import { buildRenderJobs } from '../utils/render-jobs.js';
+import { StorepixError } from '../utils/errors.js';
 import { chromium } from 'playwright';
-import { createServer } from 'http';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
@@ -79,50 +82,17 @@ async function loadTestConfig(template) {
 /**
  * Start HTTP server to serve templates and mock screenshots
  */
-function startServer(templatesDir, mockDir, template) {
-  return new Promise((resolvePromise) => {
-    const server = createServer(async (req, res) => {
-      const url = new URL(req.url, 'http://localhost');
-
-      // Serve mock screenshots at /mock/*
-      if (url.pathname.startsWith('/mock/')) {
-        const filename = url.pathname.replace('/mock/', '');
-        return handler(req, res, {
-          public: mockDir,
-          rewrites: [{ source: `/mock/${filename}`, destination: `/${filename}` }]
-        });
-      }
-
-      // Serve templates
-      await handler(req, res, {
-        public: templatesDir,
-        directoryListing: false,
-        cleanUrls: false,
-        rewrites: [
-          { source: '/', destination: `/${template}/index.html` },
-          { source: '/index.html', destination: `/${template}/index.html` },
-          { source: '/styles.css', destination: `/${template}/styles.css` },
-          { source: '/status-bar/ios.html', destination: '/status-bar/ios.html' },
-          { source: '/status-bar/android.html', destination: '/status-bar/android.html' },
-          { source: '/status-bar/styles.css', destination: '/status-bar/styles.css' },
-        ]
-      });
-    });
-
-    let port = 4567;
-    const tryListen = () => {
-      server.once('error', (err) => {
-        if (err.code === 'EADDRINUSE') {
-          port++;
-          tryListen();
-        }
-      });
-      server.listen(port, () => {
-        resolvePromise({ server, port });
-      });
-    };
-    tryListen();
-  });
+async function startServer(templatesDir, mockDir, template) {
+  const session = await startRenderServer(dirname(templatesDir), { route: async (req, res) => {
+    const url = new URL(req.url, 'http://localhost');
+    if (url.pathname.startsWith('/mock/')) {
+      req.url = url.pathname.slice('/mock'.length);
+      await handler(req, res, { public: mockDir, directoryListing: false, cleanUrls: false });
+      return true;
+    }
+    return false;
+  } });
+  return session;
 }
 
 /**
@@ -180,100 +150,18 @@ async function generateMockScreenshot(page, device, deviceKey, outputPath) {
 /**
  * Render a single variant for a device
  */
-async function renderVariant(browser, baseUrl, mockDir, renderDir, deviceKey, variant) {
-  const device = getDevice(deviceKey);
-  const slices = variant.slices || 1;
-  const isPanorama = slices > 1;
-
-  const viewportWidth = device.width * slices;
-  const viewportHeight = device.height;
-
-  const ctx = await browser.newContext({
-    viewport: { width: viewportWidth, height: viewportHeight },
-    deviceScaleFactor: 1
+async function renderVariant(browser, baseUrl, mockDir, renderDir, deviceKey, variant, template) {
+  const [job] = buildRenderJobs({ template, devices: [deviceKey], screenshots: [{
+    ...variant, id: variant.name, source: '/mock/' + deviceKey + '.png',
+    headline: variant.headline ?? 'Feature Title', subheadline: variant.subheadline ?? 'Description text goes here'
+  }] }, dirname(packageTemplatesDir));
+  const images = await renderJob(browser, baseUrl, job);
+  return images.map((image, i) => {
+    const filename = variant.name + '-' + deviceKey + (job.slices > 1 ? '-' + (i + 1) : '') + '.png';
+    writeFileSync(join(renderDir, filename), image);
+    return { variantName: variant.name, deviceKey, device: job.device, filename,
+      sliceIndex: job.slices > 1 ? i + 1 : null, totalSlices: job.slices, variant };
   });
-  const pg = await ctx.newPage();
-
-  // Build URL with parameters
-  const params = new URLSearchParams({
-    screenshot: `/mock/${deviceKey}.png`,
-    headline: variant.headline || 'Feature Title',
-    subheadline: variant.subheadline || 'Description text goes here',
-    theme: variant.theme || 'light',
-    layout: variant.layout || 'top',
-    slices: slices.toString(),
-    deviceWidth: device.width.toString(),
-    deviceHeight: device.height.toString(),
-    platform: device.platform,
-    notchType: device.frame?.notch?.type || 'none',
-    notchWidth: (device.frame?.notch?.width || 0).toString(),
-    notchHeight: (device.frame?.notch?.height || 0).toString(),
-    hasHomeButton: (device.frame?.homeButton || false).toString(),
-  });
-
-  // Add headlines/subheadlines arrays for panorama mode
-  if (isPanorama && variant.headlines) {
-    params.set('headlines', JSON.stringify(variant.headlines));
-  }
-  if (isPanorama && variant.subheadlines) {
-    params.set('subheadlines', JSON.stringify(variant.subheadlines));
-  }
-
-  await pg.goto(`${baseUrl}?${params.toString()}`, { waitUntil: 'networkidle' });
-  await pg.waitForTimeout(500);
-
-  const results = [];
-
-  if (isPanorama) {
-    // Capture each slice
-    for (let i = 0; i < slices; i++) {
-      const filename = `${variant.name}-${deviceKey}-${i + 1}.png`;
-      const outputPath = join(renderDir, filename);
-
-      await pg.screenshot({
-        path: outputPath,
-        type: 'png',
-        clip: {
-          x: i * device.width,
-          y: 0,
-          width: device.width,
-          height: device.height
-        }
-      });
-
-      results.push({
-        variantName: variant.name,
-        deviceKey,
-        device,
-        filename,
-        sliceIndex: i + 1,
-        totalSlices: slices,
-        variant
-      });
-    }
-  } else {
-    const filename = `${variant.name}-${deviceKey}.png`;
-    const outputPath = join(renderDir, filename);
-
-    await pg.screenshot({
-      path: outputPath,
-      type: 'png',
-      clip: { x: 0, y: 0, width: device.width, height: device.height }
-    });
-
-    results.push({
-      variantName: variant.name,
-      deviceKey,
-      device,
-      filename,
-      sliceIndex: null,
-      totalSlices: 1,
-      variant
-    });
-  }
-
-  await ctx.close();
-  return results;
 }
 
 /**
@@ -676,7 +564,7 @@ export async function testTemplate(template, options) {
     console.log(`\n  Error: Unknown template "${template}"`);
     console.log(`\n  Available templates:`);
     console.log(`    ${availableTemplates.join(', ')}\n`);
-    process.exit(1);
+    throw new StorepixError('COMMAND', 'test-template failed; see diagnostics above.');
   }
 
   const outputDir = resolve(options.output || './.storepix-test');
@@ -690,7 +578,7 @@ export async function testTemplate(template, options) {
     const androidDevices = deviceList.filter(k => devices[k].platform === 'android');
     console.log(`    iOS: ${iosDevices.join(', ')}`);
     console.log(`    Android: ${androidDevices.join(', ')}\n`);
-    process.exit(1);
+    throw new StorepixError('COMMAND', 'test-template failed; see diagnostics above.');
   }
 
   // Load test config (variants and devices)
@@ -717,8 +605,9 @@ export async function testTemplate(template, options) {
   mkdirSync(mockDir, { recursive: true });
   mkdirSync(renderDir, { recursive: true });
 
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ args: ['--force-color-profile=srgb'] });
   const results = [];
+  let renderServer;
 
   // Calculate total expected images for progress
   const totalExpectedImages = variants.reduce((sum, v) => {
@@ -746,13 +635,13 @@ export async function testTemplate(template, options) {
 
     // Phase 2: Start server and render all variants
     console.log('  Rendering variants...');
-    const { server, port } = await startServer(packageTemplatesDir, mockDir, template);
-    const baseUrl = `http://localhost:${port}`;
+    renderServer = await startServer(packageTemplatesDir, mockDir, template);
+    const baseUrl = renderServer.url;
 
     let totalRendered = 0;
     for (const variant of variants) {
       for (const deviceKey of deviceKeys) {
-        const variantResults = await renderVariant(browser, baseUrl, mockDir, renderDir, deviceKey, variant);
+        const variantResults = await renderVariant(browser, baseUrl, mockDir, renderDir, deviceKey, variant, template);
         results.push(...variantResults);
         totalRendered += variantResults.length;
         const progress = Math.round((totalRendered / totalExpectedImages) * 100);
@@ -760,7 +649,7 @@ export async function testTemplate(template, options) {
       }
     }
 
-    server.close();
+    await renderServer.close();
     process.stdout.write(`\x1b[2K\r`);
     console.log(`  Rendered ${results.length} screenshots\n`);
 
@@ -777,14 +666,9 @@ export async function testTemplate(template, options) {
       if (closeBrowser) {
         console.log('  Browser opened. Press Ctrl+C to close.\n');
 
-        process.on('SIGINT', async () => {
-          console.log('\n  Closing...');
-          await closeBrowser();
-          process.exit(0);
+        await new Promise(resolve => {
+          process.once('SIGINT', async () => { await closeBrowser(); resolve(); });
         });
-
-        // Keep process alive
-        await new Promise(() => {});
       } else {
         console.log(`  Open in browser: file://${galleryPath}\n`);
       }
@@ -794,6 +678,6 @@ export async function testTemplate(template, options) {
     }
 
   } finally {
-    await browser.close();
+    try { await browser.close(); } finally { await renderServer?.close(); }
   }
 }

@@ -19,9 +19,15 @@ Generate beautiful App Store and Play Store screenshots with HTML/CSS templates.
 
 ## Installation
 
+Requires Node.js 22.12 or newer (Node.js 24 LTS recommended).
+
 ```bash
 npx storepix init
+npx playwright install chromium
 ```
+
+After upgrading storepix, rerun the browser installation command to install
+the Chromium revision required by the updated Playwright dependency.
 
 This creates a `storepix/` folder in your project with:
 
@@ -85,7 +91,11 @@ npx storepix init --template minimal   # Use different template
 npx storepix generate                  # Generate all screenshots
 npx storepix generate --device iphone-6.9  # Single device
 npx storepix generate --locale de      # Single locale
-npx storepix generate --skip-validation    # Skip all validation
+npx storepix generate --skip-validation    # Skip source/schema checks
+npx storepix generate --concurrency 2      # Bounded parallel generation
+npx storepix generate --no-parallel        # One render job at a time
+npx storepix generate --orientation landscape
+npx storepix generate --cache              # Reuse unchanged local artwork
 
 # Preview
 npx storepix preview                   # Start preview server
@@ -146,6 +156,16 @@ The Feature Graphic is a promotional banner required for Google Play Store listi
 
 ## Templates
 
+<!-- templates:start -->
+| Template | Description |
+| --- | --- |
+| `default` | Gradient background with decorative blur effects |
+| `feature-graphic` | Android Play Store feature graphic (1024x500) |
+| `minimal` | Clean solid-color background without decorative elements |
+| `panorama` | Rotated device with panoramic screenshot support spanning multiple images |
+| `photo` | Full-bleed background image with device frame overlay |
+<!-- templates:end -->
+
 Each template supports different configuration options. The `init` command generates template-specific config examples.
 
 ### `default`
@@ -161,9 +181,6 @@ Solid color background with device mockup. Clean and professional.
 ```javascript
 { headline: 'Title', subheadline: 'Description', theme: 'light', layout: 'top' }
 ```
-
-### `plain`
-Screenshot only, no device frame. Useful for Play Store or custom framing.
 
 ### `photo`
 Background image support with device mockup. For lifestyle or contextual shots.
@@ -227,7 +244,7 @@ Config validation:
 - **Errors** (✗) block generation until fixed
 - **Warnings** (⚠) allow generation but notify you of potential issues
 
-Use `--skip-validation` to bypass all validation.
+Use `--skip-validation` to bypass source and schema checks. Final output validation always runs.
 
 ## TypeScript Support
 
@@ -333,7 +350,10 @@ Enable hot reload for rapid template development:
 npx storepix preview --watch --open
 ```
 
-Changes to templates, CSS, or config automatically refresh the browser.
+The preview includes screenshot, device, and locale selectors and uses the same render
+parameters as export. Changes to templates, assets, or config refresh the selected
+artwork. Invalid config edits appear as errors; fixing the file resumes preview.
+The server listens only on 127.0.0.1.
 
 ## Upgrading Templates
 
@@ -360,3 +380,66 @@ This creates mock screenshots for each device and opens a gallery in your browse
 ## License
 
 MIT
+
+## Rendering and validation
+
+PNG, JPEG, and WebP sources are decoded before rendering. Source images can have
+any dimensions; smaller sources produce a scaling warning. Outputs are compressed
+RGB PNGs with no alpha channel, validated against the selected canvas dimensions.
+Panoramas are captured once, then split into adjacent images. Output files are
+replaced atomically after validation. Failed jobs reject the command; already
+completed jobs remain on disk.
+
+Built-in templates bundle Inter under its SIL Open Font License, so they render
+without Google Fonts. Custom fonts can be supplied with local CSS/font files;
+Inter does not cover every writing system. Existing projects retain their
+user-owned templates: run `storepix upgrade --force` to adopt the new template
+code (review the backups if you have customizations).
+
+Custom templates may set `window.storepixReady` to a Promise for asynchronous
+layout or data work. Generation waits up to 15 seconds for that Promise, fonts,
+image decoding, and CSS images. Rejected promises, browser script errors, missing
+assets, and timeouts fail generation. Capture disables CSS animations, hides
+the caret, and requires two matching frames. Small Chromium rasterization
+differences can still occur between runs, especially on transformed edges;
+byte-identical exports across browsers or operating systems are not guaranteed. Custom asynchronous work must be included in the ready Promise.
+
+`--concurrency` is a maximum (default 2, range 1–8). Storepix reduces workers for
+large canvases using a 24-million-pixel budget; this is a scheduling heuristic,
+not a hard process memory limit. `--no-parallel` forces one worker.
+
+`--cache` is opt-in for deterministic projects. It fingerprints local project
+files, renderer code, and browser version, and verifies output hashes before reuse.
+Changes to any project file conservatively invalidate jobs. Renders that request
+external HTTP assets are not cached. Symlinked assets are not supported by the
+cache. Disable caching when templates depend on time, randomness, environment
+variables, or dependencies outside the project. Remove `.storepix-cache.json`
+to clear the cache.
+
+Upload display groups are defined separately in `src/devices/upload-targets.js`.
+For compatibility, `iphone-6.1` retains its historical 1179×2556 canvas, which
+belongs to Apple’s 6.3-inch upload group; `iphone-6.7` maps to the 6.9-inch group.
+
+Device keys are rendering presets, not an exhaustive list of physical models or
+store acceptance rules. `orientation: 'landscape'` swaps the preset dimensions
+(except the fixed feature graphic). Check the current
+[Apple screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications)
+and [Google Play asset requirements](https://support.google.com/googleplay/android-developer/answer/9866151)
+for submission requirements. Custom template layouts may need landscape tuning.
+
+## JavaScript API
+
+`generate({ config })` returns `{ files, workers, cached }` and rejects on errors.
+`preview({ config, port: 0, watch: true })` returns `{ url, close }`; call
+`await close()` when finished. Library commands throw instead of exiting the
+host process. `StorepixError` exposes a `code` for configuration, source,
+template, or render errors; underlying system errors can retain their native code.
+The CLI reports errors and sets a nonzero exit code.
+
+## Development checks
+
+`npm test` runs unit and command integration tests. After installing Chromium,
+`npm run test:render` exercises all templates offline, preview reloads, readiness
+failures, panorama pixels, output validation, caching, and cleanup. CI runs these
+on Ubuntu 24.04 using the locked Playwright browser and bundled fonts.
+`npm run docs:templates` regenerates the template table from bundled schemas.

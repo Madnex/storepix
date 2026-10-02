@@ -33,7 +33,7 @@ function applyCustomContent(urlParams) {
     if (customContent[field] === '') {
       el.style.display = 'none';
     } else {
-      el.src = customContent[field];
+      el.src = new URL(customContent[field], location.origin + '/').href;
     }
   });
 }

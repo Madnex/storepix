@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-02
+
+### Migration
+- Requires Node.js 22.12 or newer. Reinstall Chromium with `npx playwright install chromium`.
+- Run `storepix upgrade --force` in existing projects to adopt the updated templates; review customization backups.
+- Library callers must handle rejected promises; `preview()` returns a session with an async `close()` method.
+
+### Added
+- Shared preview/export rendering with screenshot, device, and locale selectors and live config error recovery.
+- Local Inter fonts, asynchronous template readiness, bounded render workers, and optional output caching.
+- Sharp-based source decoding, opaque PNG output validation/compression, and single-capture panorama slicing.
+- Landscape canvas option and real-browser CI coverage for rendering, reloads, cache invalidation, and failure cleanup.
+
+### Fixed
+- Release browser/server/watcher resources on failure; library commands reject instead of exiting the host process.
+- Accept JPEG/WebP and differently sized source images; reject corrupt pixel data and invalid final exports.
+- Correct unsupported template claims and generate the README template table from schemas.
+
+### Changed
+- Update Commander to 15.0.0, Playwright to 1.63.0, and serve-handler to 6.1.7; refresh transitive dependencies.
+- Require Node.js 22.12 or newer, matching Commander 15; test Node.js 22.12, 24, and 26 in CI.
+- Document Chromium installation and dependency/architecture review findings.
+
 ## [0.1.0] - 2024-12-14
 
 ### Added

@@ -63,3 +63,10 @@ export function tryAddTemplate(configDir, templateName) {
     };
   }
 }
+
+/** Install missing shared assets without replacing user-owned files. */
+export function ensureSharedAssets(configDir) {
+  for (const name of ['status-bar', 'fonts', 'storepix-content.js']) {
+    cpSync(join(packageTemplatesDir, name), join(configDir, 'templates', name), { recursive: true, force: false });
+  }
+}
